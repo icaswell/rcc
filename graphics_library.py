@@ -1,4 +1,8 @@
-# https://www.w3.org/TR/xml-entity-names/025.html
+# Block Elements (U+2580 to U+259F)
+# ▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐ ░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟
+# 
+# Geometric Shapes (U+25A0 to U+25FF)
+# ■ □ ▢ ▣ ▤ ▥ ▦ ▧ ▨ ▩ ▪ ▫ ▬ ▭ ▮ ▯ ▰ ▱ ▲ △ ▴ ▵ ▶ ▷ ▸ ▹ ► ▻ ▼ ▽ ▾ ▿ ◀ ◁ ◂ ◃ ◄ ◅ ◆ ◇ ◈ ◉ ◊ ○ ◌ ◍ ◎ ● ◐ ◑ ◒ ◓ ◔ ◕ ◖ ◗ ◘ ◙ ◚ ◛ ◜ ◝ ◞ ◟ ◠ ◡ ◢ ◣ ◤ ◥ ◦ ◧ ◨ ◩ ◪ ◫ ◬ ◭ ◮ ◯ ◰ ◱ ◲ ◳ ◴ ◵ ◶ ◷ ◸ ◹ ◺ ◻ ◼ ◽ ◾ ◿ 
 template_8p =(
 "                \n"
 "                \n"
@@ -39,24 +43,28 @@ pawn_b_8p="""
                 """
 
 
+
 knight_w_8p =(
 "                \n"
-"                \n"
-"                \n"
-" knight_w       \n"
-"                \n"
-"                \n"
-"                \n"
-"                ")
+"      |\_       \n"
+"     /  .\_     \n"
+"    |   ___)    \n"
+"    |    \      \n"
+"    |  =  |     \n"
+"    /_____\     \n"
+"   [_______]    "
+)
+
 knight_b_8p =(
 "                \n"
-"                \n"
-"                \n"
-" knight_b       \n"
-"                \n"
-"                \n"
-"                \n"
-"                ")
+"      ◣__       \n"
+"     /▇▇◉\_     \n"
+"     ▇▇▇▇▇▇)    \n"
+"     ▇▇▇▇\      \n"
+"     ▇▇▇▇▇      \n"
+"    /▇▇▇▇▇\     \n"
+"   [▇▇▇▇▇▇▇]    "
+)
 
 bishop_w_8p =(
 "                \n"
@@ -140,4 +148,6 @@ STANDARD_PIECES = {
         "queen": {"white": queen_w_8p, "black": queen_b_8p},
         "king": {"white": king_w_8p, "black": king_b_8p},
 }
+
+
 
