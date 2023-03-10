@@ -1,3 +1,5 @@
+import os, sys
+
 from name_registry import register_name, random_string
 
 COLORS = {
@@ -21,16 +23,38 @@ COLORS = {
   "teal_highlight": 46,
   "grey_highlight": 47,
 }
+COLOR_END =  "\033[0m"
 
 def get_color_tags(color):
   if color == "none": return ('', '')
-  assert color in COLORS
+  if color not in COLORS:
+      raise ValueError(f"Unknown color '{color}'")
   color_i = COLORS[color]
   return f"\033[{color_i}m",  "\033[0m"
 
-def colorize(s, color):
+def colorize(s: str, color: str) -> str:
   start, stop = get_color_tags(color)
   return f"{start}{s}{stop}"
+
+
+class Pixel():
+    def __init__(self, val = " ", color: str = None, color_end:bool = False):
+        # self.val = val
+        # pre_tags = []
+        # post_tags = []
+        if color and color != "none":
+          if color not in COLORS:
+            raise ValueError(f"Unknown color '{color}'")
+          color_i = COLORS[color]
+          self.pre_tags.append(f"\033[{color_i}m")
+        if color_end:
+            self.post_tags.append(COLOR_END)
+
+    def surface(self):
+      """Get the surface form of the pixel"""
+      return ''.join(self.pre_tags) + self.val + ''.join(self.post_tags)
+
+
 
 
 class Image():
@@ -48,24 +72,29 @@ class Image():
 
 
         self.layers = []
-        self.layer_unique_ids = [f"{self.name}_base"]
+        self.layer_unique_ids = []
         self.empty_pixel = " "
 
         if from_string:
-          self.add_layer_from_string(from_string)
+          self.add_layer_from_string(from_string, layer_name=f"{self.name}_base")
         else:
           self.height = height
           self.width = width
-          pixels = []
-          for row_i in range(self.height):
-              pixels.append([])
-              for col_j in range(self.width):
-                pixels[row_i].append(self.empty_pixel)
-          self.layers = [pixels]
+          self.add_transparency(layer_name=f"{self.name}_base")
 
         self.color = "none"
         if color:
             self.set_color(color)
+
+    def add_transparency(self, layer_name=None):
+          pixels = [[self.empty_pixel]* self.width for _ in range(self.height)]
+          self.layers.append(pixels)
+          if not layer_name:
+              layer_name = "transparency" 
+              # TODO random string
+              # TODO register name
+          self.layer_unique_ids.append(layer_name)
+        
 
     def pop_layer(self, layer_id = None):
         pass
@@ -106,6 +135,30 @@ class Image():
           print(f"\tlayer {i} (ID={self.layer_unique_ids[i]}): (h={len(layer)}, w={len(layer[i])})")
           for row in layer:
             print("\t\t", row)
+
+
+    def set_pixel(self, row_i, col_j, pixel_val, layer_i=-1, preserve_color=True):
+        # possible todo: raise error if pixel val doesn't have a printed length of 1
+        old_pixel = self.layers[layer_i][row_i][col_j]
+        if preserve_color and len(old_pixel) > 1:
+          print([old_pixel])
+          open_tag, pixel, close_tag = re.match("(\033\[[^m]*m)?(.*)(\033\[0m)?", old_pixel).groups()
+          open_tag = '' if not open_tag else open_tag
+          close_tag = '' if not close_tag else close_tag
+          pixel_val = f"{open_tag}{pixel_val}{close_tag}"
+        self.layers[layer_i][row_i][col_j] = pixel_val
+
+
+    def print_in_string(self, s):
+        """Make a new transparent layer and print a string on it.
+        """
+        self.add_transparency()
+        for row_i in range(self.height):
+            for col_j in range(self.width):
+                string_idx = col_j + row_i*self.width
+                if string_idx >= len(s): break
+                self.set_pixel(row_i, col_j, s[string_idx])
+
 
 
     def drop_in_image_by_coordinates(self, image, upper_left_row, upper_left_col):
@@ -160,6 +213,7 @@ class Image():
         return self.empty_pixel
 
     def pixels(self):
+        # TODO handle stacked colors
         out_pixels = self.layers[-1]
         for row_i in range(self.height):
             for col_j in range(self.width):
@@ -260,7 +314,7 @@ class Image():
                     raise ValueError(f"In Image {img.name}, pixel {pixel_i} '{pixel}' in row #{row_i} in layer {self.layer_unique_ids[layer_i]} (#{layer_i}) has length {pixel_len}, but pixels must be of length in {1, 5, 6, 7, 9, 10, 11}")
 
 
-    def add_layer_from_string(self, s):
+    def add_layer_from_string(self, s, layer_name=None):
         rows = [row for row in s.split("\n") if row]
         self.height = len(rows)
         self.width = len(rows[0])
@@ -273,6 +327,11 @@ class Image():
             for col_j in range(self.width):
                 string_pixels[row_i].append(rows[row_i][col_j: col_j+1])
         self.layers.append(string_pixels)
+        if not layer_name:
+            # TODO register and random
+            layer_name = "from_string"
+        self.layer_unique_ids.append(layer_name)
+
 
     def set_all_pixels_to_value(self, v):
         pixels = self.layers[-1]
@@ -287,6 +346,9 @@ class Image():
             for col_j in range(self.width):
                 printstring += pixels[row_i][col_j]
             printstring += "\n"
+        # fo = os.fdopen(sys.stdout.fileno(), 'w', 1000000)
+        # fo.write(printstring)
+        # fo.close()
         print(printstring)
 
     def copy_layers(self, layers):
@@ -300,4 +362,59 @@ class Image():
         if color:
             new_image.set_color(color)
         return new_image
+
+
+
+
+
+
+def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
+    """wrape a list of images into one image:
+    Input: [ x x x x x x x ]
+    Output:
+     x x x 
+     x x x 
+     x 
+     """
+    if not images: return None
+    if len(images) == 1: return images[0]
+    widths = [img.width for img in images]
+    if any(w > width for w in widths):
+        raise ValueError(f"Cannot wrap_collapse images where at least one exceeds width={width}: {widths}.")
+
+    cur_width = 0
+    row_start_indices = [0] # the NON-INCLUSIVE upper bounds of each row
+    for img_i, w in enumerate(widths):
+        if cur_width + w > width:
+            row_start_indices.append(img_i)
+            cur_width = w
+        cur_width += w
+    row_start_indices.append(len(widths))
+
+    img_rows = []
+    for i in range(len(row_start_indices) - 1):
+        lb = row_start_indices[i]
+        ub = row_start_indices[i + 1]
+        img_rows.append(horizontal_collapse(images[lb:ub]))
+
+    return vertical_collapse(img_rows, height_buf=height_buf)
+
+def vertical_collapse(images: list, height_buf:int=0) -> Image:
+    """Stack a list of images vertically into one image"""
+    if not images: return None
+    if len(images) == 1: return images[0]
+    final_img = images[0].copy()
+    for img in images[1:]:
+        final_img.drop_in_image(img, "bottom_left", height_buf=height_buf)
+    return final_img
+
+def horizontal_collapse(images: list) -> Image:
+    """Stack a list of images horizontally into one image"""
+    if not images: return None
+    if len(images) == 1: return images[0]
+    final_image = Image(height=images[0].height, width=0)
+    for img in images:
+        final_image.drop_in_image(img, "right_top")
+    return final_image
+
 

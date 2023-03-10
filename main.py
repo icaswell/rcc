@@ -21,7 +21,7 @@ def parse_command(line):
     return None
 
 def get_command():
-  print("*=~"*27)
+  # print("*=~"*27)
   # Loop to get a single command
   while True:
     line = input(colorize("enter command ('help' for help): ", 'green')).strip()
@@ -39,7 +39,7 @@ def get_command():
       return cmd, args, kwargs
  
 
-COMMAND_ACTIONS = {"help", "q", "s", "m"}
+COMMAND_ACTIONS = {"help", "q", "s", "m", "sm"}
 
 def print_help():
     print(f"""
@@ -51,6 +51,7 @@ Here are some commands you can enter!
           {colorize('help', 'red')}: print this string.
           {colorize('s XY [-k]', 'red')}: select piece at square XY (alternate option -k: keep existing selection) 
           {colorize('m XY WZ', 'red')}: move the piece at square XY to square WZ
+          {colorize('sm XY', 'red')}: select moves of the piece at square XY
           {colorize('q', 'red')}: quit this game.
 
     """)
@@ -59,7 +60,7 @@ Here are some commands you can enter!
 def main():
   board = Board(square_height=8, grid_width=8, border_width=1)
   while True:
-    print("\n"*8)
+    # print("\n"*8)
     board.render()
     cmd, args, kwargs = get_command()
     if cmd == "q":
@@ -74,6 +75,9 @@ def main():
         square = board.square_from_a1_coordinates(args[0])
         continue_existing_selection = kwargs.get("k", False)
         board.select_square(square, continue_existing_selection=continue_existing_selection)
+    elif cmd == "sm":
+        assert len(args) ==  1 and len(args[0]) == 2
+        board.select_piece_moves_from_square(args[0])
     elif cmd == "help":
         print_help()
     else:

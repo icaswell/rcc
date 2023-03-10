@@ -87,12 +87,12 @@ bishop_b_8p =(
 
 rook_w_8p =(
 "                \n"
-"                \n"
-"                \n"
-" rook_w         \n"
-"                \n"
-"                \n"
-"                \n"
+"   | T T T |    \n"
+"   \       /    \n"
+"    |     |     \n"
+"    |     |     \n"
+"   /       \    \n"
+"   |_______|    \n"
 "                ")
 rook_b_8p =(
 "                \n"
@@ -141,12 +141,12 @@ king_b_8p =(
 "                ")
 
 STANDARD_PIECES = {
-        "pawn": {"white": pawn_w_8p, "black": pawn_b_8p},
-        "knight": {"white": knight_w_8p, "black": knight_b_8p},
-        "bishop": {"white": bishop_w_8p, "black": bishop_b_8p},
-        "rook": {"white": rook_w_8p, "black": rook_b_8p},
-        "queen": {"white": queen_w_8p, "black": queen_b_8p},
-        "king": {"white": king_w_8p, "black": king_b_8p},
+        "pawn": {"White": pawn_w_8p, "Black": pawn_b_8p},
+        "knight": {"White": knight_w_8p, "Black": knight_b_8p},
+        "bishop": {"White": bishop_w_8p, "Black": bishop_b_8p},
+        "rook": {"White": rook_w_8p, "Black": rook_b_8p},
+        "queen": {"White": queen_w_8p, "Black": queen_b_8p},
+        "king": {"White": king_w_8p, "Black": king_b_8p},
 }
 
 
