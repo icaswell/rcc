@@ -1,12 +1,15 @@
 from game import Game
 from game_library import *
 from name_registry import reset_name_registry
+import time
 
-SEC="#" + "="*79 + "\n"
+SEC = "#" + "="*79 + "\n"
+SEC = f"\n{SEC}{SEC}"
 G = Game(STANDARD_CHESS)
 G.render()
 
 SHOULD_I_DO_TESTS = True
+# SHOULD_I_DO_TESTS = False
 
 if SHOULD_I_DO_TESTS:
   print(f"{SEC}Moving various")
@@ -24,26 +27,26 @@ if SHOULD_I_DO_TESTS:
   G.render()
 
 
-if SHOULD_I_DO_TESTS:
-  print(f"{SEC}Select moves")
-  G.highlight_piece_moves_from_square("c5")  # the bishop on the side
-  G.render()
-  G.highlight_piece_moves_from_square("f5")  # Rook
-  G.render()
-  G.highlight_piece_moves_from_square("g7")  # Pawn that hasn't moved
-  G.render()
-  G.highlight_piece_moves_from_square("d4")  # Pawn that has already moved
-  G.render()
-  G.highlight_piece_moves_from_square("b6")  # pawn that can take but not move
-  G.render()
-  G.highlight_piece_moves_from_square("g8")  # Knight that can move but not take
-  G.render()
-  G.highlight_piece_moves_from_square("b5")  # Knight that can move and take
-  G.render()
-  G.highlight_piece_moves_from_square("f3")  # Queen that can move and take
-  G.render()
-  G.highlight_piece_moves_from_square("d1")  # King
-  G.render()
+# if SHOULD_I_DO_TESTS:
+#   print(f"{SEC}Select moves")
+#   G.board.highlight_piece_moves_from_square("c5")  # the bishop on the side
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("f5")  # Rook
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("g7")  # Pawn that hasn't moved
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("d4")  # Pawn that has already moved
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("b6")  # pawn that can take but not move
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("g8")  # Knight that can move but not take
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("b5")  # Knight that can move and take
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("f3")  # Queen that can move and take
+#   G.render()
+#   G.board.highlight_piece_moves_from_square("d1")  # King
+#   G.render()
 
 if SHOULD_I_DO_TESTS:
   print(f"{SEC}Take")
@@ -56,8 +59,10 @@ if SHOULD_I_DO_TESTS:
   G.render()
 
 
-reset_name_registry()
-G = Game(STANDARD_CHESS)
-G.render()
-G.play_nonsense_game()
-
+if SHOULD_I_DO_TESTS:
+  print(f"{SEC}Nonsense Game")
+  reset_name_registry()
+  G = Game(STANDARD_CHESS)
+  G.render()
+  G.play_nonsense_game()
+  

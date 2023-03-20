@@ -1,7 +1,28 @@
 from graphics import Image
 from name_registry import register_name
-from graphics_library import STANDARD_PIECES
+from asset_library import STANDARD_PIECES
 
+class PieceMoves():
+    """This class is essentially a glorified dict + function decorator.
+
+    It stores what moves a given Piece can make. The actual logic for dinding the takable moves happens in the piece's get_possible_moves function/
+    """
+    def __init__(self, square, piece, all_moves=None, taking_moves=None, nontaking_moves=None):
+        # print(square, piece, all_moves, taking_moves, nontaking_moves)
+        if all_moves is not None:
+            if (taking_moves is not None) or (nontaking_moves is not None):
+                raise ValueError("If all_moves is specified, neither of taking_moves or nontaking_moves can be")
+            self.taking    =    [square for square in all_moves if square.takable_occupants(piece)]
+            self.nontaking = [square for square in all_moves if not square.takable_occupants(piece)]
+        else:
+            if (taking_moves is None) or (nontaking_moves is None):
+                raise ValueError("If all_moves is not specified, both of taking_moves and nontaking_moves must be")
+            self.taking    = taking_moves
+            self.nontaking = nontaking_moves
+
+        self.id_to_move = {str(i): square_i for i, square_i in enumerate(self.taking + self.nontaking)}
+
+class Piece(): pass
 class Piece():
     # piece attributes
     unique_id = ""
@@ -9,6 +30,7 @@ class Piece():
     team = ""  # white, black, etc.
     mover = ""  # white, Ibraheem, Ibhraheem, etc
     alive = True
+    has_moved = False
     square_this_is_on = None
 
     special_stuff = {}  # any special enchantments or attributes
@@ -23,11 +45,11 @@ class Piece():
         self.team = team
         self.has_moved = False
 
-    def can_be_taken_by(self, piece):
+    def can_be_taken_by(self, piece: Piece) -> bool:
         """Can self be taken by piece?"""
         return piece.team != self.team
 
-    def relative_tangibility(self, piece):
+    def relative_tangibility(self, piece: Piece) -> str:
         """
         returns one of the enum of ["intangible", "unpassthroughable", "unpassintoable"]
         the default method is the one that works for all standard pieces and some nonstandard pieces.
@@ -35,54 +57,44 @@ class Piece():
         if piece.team == self.team: return "unpassintoable"
         return "unpassthroughable"
 
-    def action_when_vacates(self, square):
+    def action_when_vacates(self, square) -> None:
         # what happens when it leaves a particular square
         # usually: nothing
         # the board handles taking it out of the square's occupants list
         self.square_this_is_on = square
-        pass
+        self.has_moved = True
 
 
-    def action_when_lands_on(self, square):
+    def action_when_lands_on(self, square) -> None:
         # what happens when it lands on something else
         # usually: nothing
         # (the action_when_landed_on method handles being taken)
         self.square_this_is_on = square
-        pass
 
-    def action_when_landed_on(self, piece_landing_on_me):
+    def action_when_landed_on(self, piece_landing_on_me: Piece) -> None:
         # usually: mark itself as dead
-        # te Square class takes care of removing the body.
+        # the Square class takes care of removing the body from the square it was on.
         self.alive = False
-        pass
-    def get_possible_taking_moves(self, square):
-        pass
-    def get_possible_moves(self, square):
-        # default: as a king.
-        # TODO: make default an error.
-        return square.neighbors.values()
-    def choose_autonomous_move(self, square):
-        pass # only for autonomous pieces
-    def get_squares_this_is_on(self, square):
-        # usually one, but can be multiple, like with one ring
-        return self.square_this_is_on
+
+    def get_possible_moves(self, square) -> PieceMoves:
+        raise ValueError("Not Implemented!")
+    # def choose_autonomous_move(self, square):
+    #     pass # only for autonomous pieces
+    # def get_squares_this_is_on(self, square):
+    #     # usually one, but can be multiple, like with one ring
+    #     return self.square_this_is_on
 
 class Pawn(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="pawn")
         self.orientation = "n" if team == "Black" else "s"
 
-    def taking_directions(self):
+    def _taking_directions(self):
        directions = "n ne e se s sw w nw".split() 
        orientation_idx = directions.index(self.orientation)
        diag_1 = directions[(orientation_idx + 1)%len(directions)]
        diag_2 = directions[(orientation_idx - 1)%len(directions)]
        return [[diag_1], [diag_2]]
-
-
-    def action_when_vacates(self, square):
-        self.square_this_is_on = square
-        self.has_moved = True
 
     def is_valid_nontaking_move(self, square):
         """Can this pawn make a nontaking move to this square?
@@ -92,7 +104,7 @@ class Pawn(Piece):
            return True
         return False
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         nontaking_moves = []
         in_front = self.square_this_is_on.get_square_from_directions(self, [self.orientation])
         if self.is_valid_nontaking_move(in_front):
@@ -102,82 +114,65 @@ class Pawn(Piece):
           if self.is_valid_nontaking_move(in_front):
               nontaking_moves.append(in_front)
 
-        taking_moves = self.square_this_is_on.get_squares_from_directions_list(self, self.taking_directions())
+        taking_moves = self.square_this_is_on.get_squares_from_directions_list(self, self._taking_directions())
         taking_moves = [square for square in taking_moves if (square.takable_occupants(self) and not square.untakable_occupants(self))]  # TODO
 
-        return {"taking": taking_moves, "nontaking":nontaking_moves}
+        return PieceMoves(square=self.square_this_is_on, piece=self, taking_moves=taking_moves, nontaking_moves=nontaking_moves)
 
 class Knight(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="knight")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         directions = [["n", "nw"], ["n", "ne"], ["e", "ne"], ["e", "se"], ["s", "se"], ["s", "sw"], ["w", "sw"], ["w", "nw"]]
         all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions, "jumping") 
-        # below can be a decorator...
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking": nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
 
 class Camel(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="camel")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         directions = [["n", "n", "nw"], ["n", "n", "ne"], ["e", "e", "ne"], ["e", "e", "se"], ["s", "s", "se"], ["s", "s", "sw"], ["w", "w", "sw"], ["w", "w", "nw"]]
         all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions, "jumping") 
-        # below can be a decorator...
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking": nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
 class Bishop(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="bishop")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         all_moves = self.square_this_is_on.get_diagonal_rays(self) 
-        #  TODO: this is inefficient; one could call get_squares_in_ray and then just check the edges. But savings is prolly minimal.
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking":nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
 class Rook(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="rook")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         all_moves = self.square_this_is_on.get_orthogonal_rays(self) 
-        #  TODO: this is inefficient; one could call get_squares_in_ray and then just check the edges. But savings is prolly minimal.
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking":nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
 class Queen(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="queen")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         all_moves = self.square_this_is_on.get_orthogonal_rays(self) 
         all_moves += self.square_this_is_on.get_diagonal_rays(self) 
-        #  TODO: this is inefficient; one could call get_squares_in_ray and then just check the edges. But savings is prolly minimal.
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking":nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
 
 class King(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="king")
 
-    def get_possible_moves(self):
+    def get_possible_moves(self) -> PieceMoves:
         directions = [["n"],["ne"],["e"],["se"],["s"],["sw"],["w"], ["nw"]]
         all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions) 
-        # below can be a decorator...
-        taking_moves =    [square for square in all_moves if square.takable_occupants(self)]
-        nontaking_moves = [square for square in all_moves if not square.takable_occupants(self)]
-        return {"taking": taking_moves, "nontaking":nontaking_moves}
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
+
 # ALL_PIECES = {
 #       "pawn": Pawn,
 #       "knight": Knight,

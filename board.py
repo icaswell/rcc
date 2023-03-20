@@ -1,6 +1,6 @@
 from graphics import Image
 from name_registry import register_name
-from piece import *
+from piece import Piece, PieceMoves
 
 
 # an "enum"
@@ -20,12 +20,14 @@ ROW_OFFSET_TO_NAME = {
 SELECT_COLOR = "pink_highlight"
 PIECE_MOVE_SELECT_COLOR = "yellow_highlight"
 PIECE_TAKABLE_SELECT_COLOR = "red_highlight"
+ANNOTATE_COLOR = "teal_highlight"
 
+class Square(): pass  # forward declatation for typecheck lol
 class Square():
     # one square of the board
     highlight_color = "none"
 
-    def __init__(self, height, width, color, name):
+    def __init__(self, height:int, width:int, color:str, name:str) -> None:
         self.base_img = Image(height=height, width=width, color="none", name=name + "_img")
         self.neighbors = {}  # a dict of direction name to Square object, e.g. {"nw": square_xxx}
         self.occupants = []  # list of Pieces
@@ -33,28 +35,32 @@ class Square():
         self.name = name
         register_name(self.name)
 
-    def update_neighbors(self, neighbors):
+    def update_neighbors(self, neighbors: list) -> None:
         """NOTE this never removes neighbors. May need to have an extra option for some cards.
         """
         self.neighbors.update(neighbors)
 
-    def get_image(self):
+    def get_image(self) -> Image:
         full_img = self.base_img.copy()
+        width, height = full_img.width, full_img.height
         for occupant in self.occupants:
+          if occupant.img.width != width: raise ValueError(f"Cannot stack {occupant.name}'s image of width {occupant.img.width} into square {self.name} of width {width}")
+          if occupant.img.height != height: raise ValueError(f"Cannot stack {occupant.name}'s image of height {occupant.img.height} into square {self.name} of height {height}")
           full_img.stack_on_image(occupant.img)
         full_img.set_color(self.color)
         return full_img
     
-    def set_color(self, color):
+    def set_color(self, color: str) -> None:
         self.color = color
 
-    def add_occupant(self, piece):
+    def add_occupant(self, piece:Piece) -> None:
         if not hasattr(piece, "img"):
             raise ValueError("Occupants must be renderable")
         self.occupants.append(piece)
 
-    def remove_occupant(self, piece):
-        assert self.occupants
+    def remove_occupant(self, piece:Piece) -> Piece:
+        if not  self.occupants:
+            raise ValueError(f"Square {self.name} does nto have any occupants!")
         piece_name = piece.name if isinstance(piece, Piece) else piece
         piece_idx = -1
         for i, occupant in enumerate(self.occupants):
@@ -65,7 +71,7 @@ class Square():
             raise ValueError(f"Cannot remove piece {piece_name} from square {self.name}, since said square only has these {len(self.occupants)} occupants: {', '.join([o.name for o in self.occupants])}.")
         return self.occupants.pop(piece_idx)
 
-    def add_debug_layer(self):
+    def add_debug_layer(self) -> None:
         debug_string = f"{self.name.replace('square_', 's')}:"
         for direction, square in self.neighbors.items():
             debug_string += f"{direction}:{square.name.replace('square_', 's')};"
@@ -73,17 +79,17 @@ class Square():
             debug_string += f"occ:{occupant.name}; "
         self.base_img.print_in_string(debug_string)
 
-    def takable_occupants(self, piece):
+    def takable_occupants(self, piece:Piece) -> list:
         """Returns list of the occupants that can be taken by piece.
         """
         return  [occ for occ in self.occupants if occ.can_be_taken_by(piece)]
 
-    def untakable_occupants(self, piece):
+    def untakable_occupants(self, piece:Piece) -> list:
         """Returns list of the occupants that cannot be taken by piece.
         """
         return  [occ for occ in self.occupants if not occ.can_be_taken_by(piece)]
 
-    def relative_tangibility(self, piece):
+    def relative_tangibility(self, piece:Piece) -> str:
         """How can this square be moved through by this piece?
         In classic chess, this is synonymous with whether it has an occupant.
         In RCC, there are pieces and objects that can be moved through.
@@ -96,7 +102,7 @@ class Square():
         # TODO make these constants
 
 
-    def get_squares_in_ray(self, direction: str, moving_piece: Piece):
+    def get_squares_in_ray(self, direction: str, moving_piece: Piece) -> list:
         """E.g. get all the pieces that a bishop could reach in one direction.
         Include the last square, aka the piece that will be taken.
         """
@@ -117,13 +123,13 @@ class Square():
             if ctr >= 10: raise ValueError("Your board is bigger than 10 squares??")
         return reachable_squares
 
-    def get_orthogonal_rays(self, moving_piece: Piece):
+    def get_orthogonal_rays(self, moving_piece: Piece) -> list:
         return [square for direction in ["n", "e", "s", "w"] for square in self.get_squares_in_ray(direction, moving_piece)]
 
-    def get_diagonal_rays(self, moving_piece: Piece):
+    def get_diagonal_rays(self, moving_piece: Piece) -> list:
         return [square for direction in ["ne", "se", "sw", "nw"] for square in self.get_squares_in_ray(direction, moving_piece)]
 
-    def get_squares_from_directions_list(self, piece, directions_list, mode="normal"):
+    def get_squares_from_directions_list(self, piece:Piece, directions_list: list, mode:str="normal") -> list:
         if mode not in MODES_OF_MOVEMENT:
             raise ValueError(f"mode {mode} ois not supported; only {MODES_OF_MOVEMENT} are available.")
         if not isinstance(directions_list, list) or not directions_list:
@@ -137,7 +143,7 @@ class Square():
               reachable_squares.append(reachable_square)
         return reachable_squares
 
-    def get_square_from_directions(self, piece, directions, mode="normal"):
+    def get_square_from_directions(self, piece:Piece, directions:list, mode="normal") -> Square:
         """Given a list of directions like ["n", "nw", "e"], moves (e.g. North, Northwest, East)
         returns None if none exists
         """
@@ -177,14 +183,14 @@ class Square():
         # return list of pointers
         # normally just 1 but e.g. those slidey things have multiple ones
         pass
-    def action_when_landed_on(self, landing_piece):
+    def action_when_landed_on(self, landing_piece:Piece) -> None:
         # e.g. activate boojum, teleport piece to other portal, etc.
         pass
-    def action_when_vacated(self, piece):
+    def action_when_vacated(self, piece:Piece) -> None:
         pass
-    def get_all_adjacent(self):
-        pass
-    def get_occupants(self):
+    # def get_all_adjacent(self):
+    #     pass
+    def get_occupants(self) -> list:
         # usually returns one, but there can be coocupation...
         # TODO return a copy of this!!!
         return self.occupants
@@ -193,15 +199,19 @@ class Square():
 
 class Board():
 
-    def __init__(self, game_config, square_height=8, border_width=1):
+    def __init__(self, game_config:dict) -> None:
         # Create the squares and color them
         self.piece_map = {} # map of piece name to Piece
         self.square_map = {} # map of square name to Square
         self.board_grid = [] # list of lists of the same Squares
         # self.selected_squares = {}  # set of squares that are "selected"...use  unclear.
-        self.highlighted_squares = {}  # map of selected squares to their highlight colors
-        self.square_height = square_height
-        self.square_width = 2*square_height  # terminal characters have a dimansion of 2x1
+        self.highlighted_squares = {}  # map of squares to their highlight colors
+        # map of square names to anything that is printed on those squares.
+        # These are specifically temporary annotations and they are cleared whenever things are
+        # deselected. For more permanent things, a piece will be placed on the board.
+        self.square_annotations = {}
+        self.square_height = game_config["square_height"]
+        self.square_width = game_config["square_width"] 
         self.col_names_to_idx = {a:i for i, a in enumerate('abcdefgh')}
         self.idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
 
@@ -217,6 +227,7 @@ class Board():
                 square = Square(width=self.square_width, height=self.square_height, name=f"square_{i}{j}", color=sq_color)
                 self.board_grid[i].append(square)
                 self.square_map[square.name] = square
+                self.square_annotations[square.name] = []
 
         # add in all the squares' neighbors
         for row_i in range(game_config["board_height"]):
@@ -225,8 +236,9 @@ class Board():
 
         # Add in all the pieces
         for unused_team, positions_and_pieces in game_config["initial_positions"].items(): 
-          for (piece_row, piece_col), piece in positions_and_pieces.items():
-            self.add_new_piece(piece, piece_row, piece_col)
+          for (piece_row, piece_col), piece_generator in positions_and_pieces.items():
+              piece = piece_generator()
+              self.add_new_piece(piece, piece_row, piece_col)
 
 
         # add the pretty edges of the board
@@ -246,15 +258,14 @@ class Board():
 
         self.left_border = Image(from_string=vertical_border_img, name="left_border", color="red_highlight")
         self.right_border = self.left_border.copy(name="right_border")
-        # self.top_border = Image(height=border_width, width=self.square_width*grid_width, name="top_border", color="red_highlight")  
         self.top_border = Image(from_string=horizontal_border_img, name="top_border", color="red_highlight")  
         self.bottom_border = self.top_border.copy(name="bottom_border")
 
-    def add_debug_layer(self):
+    def add_debug_layer(self) -> None:
         for name, square in self.square_map.items():
             square.add_debug_layer()
 
-    def coordinate_is_on_grid(self, row_i, col_j):
+    def _coordinate_is_on_grid(self, row_i:int, col_j:int) -> bool:
         # assumes a convex board
         if row_i < 0 or row_i >= len(self.board_grid):
             return False
@@ -263,7 +274,7 @@ class Board():
         return True
 
 
-    def add_square_neighbors(self, row_i, col_j):
+    def add_square_neighbors(self, row_i:int, col_j:int) -> None:
         """To be used during board setup"""
         square = self.board_grid[row_i][col_j]
         for row_offset in [-1, 0, 1]:
@@ -271,7 +282,7 @@ class Board():
               if row_offset == 0 and col_offset == 0: continue
               adjacent_row = row_i + row_offset
               adjacent_col = col_j + col_offset
-              if not self.coordinate_is_on_grid(row_i=adjacent_row, col_j=adjacent_col):
+              if not self._coordinate_is_on_grid(row_i=adjacent_row, col_j=adjacent_col):
                   continue
               direction_name = ROW_OFFSET_TO_NAME[(row_offset, col_offset)]
               # TODO did I correctly add a pointer here? or is there now a duplicate of this square here?
@@ -280,20 +291,20 @@ class Board():
 
 
 
-    def get_pieces_on_square(self, square):
+    def get_pieces_on_square(self, square:Square) -> list:
         # for landslide, e.g., order type is LTR or some such
         square = self.square_from_a1_coordinates(square)
         return square.get_occupants()
 
-    def get_all_pieces_in_order(self, order_type):
-        # for landslide, e.g., order type is LTR or some such
-        pass
+    # def get_all_pieces_in_order(self, order_type):
+    #     # for landslide, e.g., order type is LTR or some such
+    #     pass
 
-    def render(self):
+    def render(self) -> None:
         board_img = self.get_image()
         board_img.render()
 
-    def get_image(self):
+    def get_image(self) -> Image:
         # flipped classroom overrides this somehow
         rows = []
         for i in range(len(self.board_grid)):
@@ -304,6 +315,9 @@ class Board():
                 square_img = square.get_image()
                 if square.name in self.highlighted_squares:
                     square_img.set_color(self.highlighted_squares[square.name])
+                if square.name in self.square_annotations:
+                    annotation = ';'.join(self.square_annotations[square.name])
+                    square_img.print_in_string(annotation, color=ANNOTATE_COLOR, location="lower_right")
                 final_row_image.r_append(square_img)
             rows.append(final_row_image)
         for row in rows[1:]:
@@ -319,10 +333,18 @@ class Board():
 
         return full_bordered
 
-    def move_top_piece(self, start_square, end_square):
+    def move_top_piece(self, start_square:Square, end_square:Square) -> list:
+        """Returns a list of dead pieces after this move.
+        """
         return self.move_piece(self.get_pieces_on_square(start_square)[0], end_square)
 
-    def move_piece(self, piece, end_square):
+    def move_piece(self, piece:Piece, end_square:Square) -> list:
+        """Returns a list of dead pieces after this move.
+        This does NOT ensure that the piece actually CAN move to this square!
+        That is the responsibility of the caller.
+
+        possible future TODO: option of what to do with the pieces it lands on (maybe not kill them?)
+        """
         start_square = piece.square_this_is_on
         end_square = self.square_from_a1_coordinates(end_square)
         if piece not in start_square.occupants:  # TODO should probably be a contains() method 
@@ -362,10 +384,14 @@ class Board():
         return pieces_to_remove_from_square
 
 
-    def dehighlight_all(self):
+    def dehighlight_all(self) -> None:
+        """TODO: "highlights" and "annotations" should be more unified in name.
+        """
         self.highlighted_squares = {}
+        for square_name in self.square_annotations:
+            self.square_annotations[square_name] = []
 
-    def square_from_a1_coordinates(self, a1_coord):
+    def square_from_a1_coordinates(self, a1_coord:str) -> Square:
         if isinstance(a1_coord, Square): return a1_coord
         assert len(a1_coord) == 2
         a, b = a1_coord[0], a1_coord[1]
@@ -383,22 +409,28 @@ class Board():
         return self.board_grid[row_idx][col_idx]
 
 
-    def highlight_piece_moves_from_square(self, square):
+    def highlight_and_get_piece_moves_from_square(self, square:Square) -> PieceMoves:
+        """TODO: it's unclear whether this should be here or in game.py.
+        Currently game.py handles selecting, but board.py handles highlighting squares on the board.
+        """
         square = self.square_from_a1_coordinates(square)
         if len(square.occupants) != 1:
             raise ValueError("Square must have exactly one occupant for this method")
-        self.highlight_piece_moves(square.occupants[0])
+        return self.highlight_and_get_piece_moves(square.occupants[0])
 
-    def highlight_piece_moves(self, piece):
+    def highlight_and_get_piece_moves(self, piece:Piece) -> PieceMoves:
         if not piece:
             raise ValueError("Empty piece given as input")
         self.dehighlight_all()
         
         piece_moves = piece.get_possible_moves()
         # for i, square in enumerate(piece_moves):
-        self.highlighted_squares.update({square.name:PIECE_MOVE_SELECT_COLOR for square in piece_moves["nontaking"]})
-        self.highlighted_squares.update({square.name:PIECE_TAKABLE_SELECT_COLOR for square in piece_moves["taking"]})
+        self.highlighted_squares.update({square.name:PIECE_MOVE_SELECT_COLOR for square in piece_moves.nontaking})
+        self.highlighted_squares.update({square.name:PIECE_TAKABLE_SELECT_COLOR for square in piece_moves.taking})
         self.highlighted_squares.update({piece.square_this_is_on.name:SELECT_COLOR})
+        for move_id, square in piece_moves.id_to_move.items():
+            self.square_annotations[square.name].append(move_id)
+        return piece_moves
 
     # def select_square(self, square_name, continue_existing_selection=False):
     #     """
@@ -412,25 +444,25 @@ class Board():
     #         square_name = square_name.name
     #     self.highlighted_squares.update({square_name:SELECT_COLOR})
 
-    def add_new_piece(self, piece, row, col):
+    def add_new_piece(self, piece:Piece, row:int, col:int) -> None:
        piece.action_when_lands_on(self.board_grid[row][col])
        self.board_grid[row][col].add_occupant(piece)
        self.piece_map[piece.name] = piece
 
-    def add_piece_to_square(self, square_name, piece_name):
+    def add_piece_to_square(self, square_name:str, piece_name:str) -> None:
         square = self.square_map[square_name]
         piece = self.piece_map[piece_name]
         square.add_occupant(piece)
 
-    def remove_piece_from_square(self, square_name, piece_name):
+    def remove_piece_from_square(self, square_name:str, piece_name:str) -> None:
         square = self.square_map[square_name]
         square.remove_occupant(piece_name)
 
-    def get_possible_moves(self, piece):
-        pass
+    # def get_possible_moves(self, piece):
+    #     pass
 
 
-    def push(self, square, direction):
+    def push(self, square, direction) -> None:
         # push all pieces in some direction, activating the relevant on/off actions if needed
         pass
 
