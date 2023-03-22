@@ -2,20 +2,16 @@ from board import Board
 from game_library import *
 
 
+tests_to_run = {"move_various", "select_moves", "take"}
+
 SEC="#" + "="*79 + "\n"
 
 print(f"{SEC}Testing Board Creation")
-board = Board(STANDARD_CHESS, square_height=8, border_width=1)
+board = Board(STANDARD_CHESS)
 board.render()
-# print(f"{SEC}Moving a pawn")
-# board.remove_piece_from_square("square_16", "white_pawn_6")
-# board.add_piece_to_square("square_36", "white_pawn_6")
-# board.highlight_square("square_36")
-# board.render()
 
-SHOULD_I_DO_TESTS = True
 
-if SHOULD_I_DO_TESTS:
+if "move_various" in tests_to_run:
   print(f"{SEC}Moving various")
   def move_top_piece(a, b):
     board.move_piece(board.get_pieces_on_square(a)[0], b)
@@ -35,7 +31,7 @@ if SHOULD_I_DO_TESTS:
   board.render()
 
 
-if SHOULD_I_DO_TESTS:
+if "select" in tests_to_run:
     print(f"{SEC}Select moves")
     board.highlight_piece_moves_from_square("c5")  # the bishop on the side
     board.render()
@@ -56,7 +52,7 @@ if SHOULD_I_DO_TESTS:
     board.highlight_piece_moves_from_square("d1")  # King
     board.render()
 
-if SHOULD_I_DO_TESTS:
+if "take" in tests_to_run:
   print(f"{SEC}Take")
   move_top_piece("c5", "d6")  # w bishop takes black pawn
   board.render()

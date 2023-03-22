@@ -3,10 +3,7 @@ from graphics import Image, vertical_collapse, horizontal_collapse, wrap_collaps
 # currently failing:
 # test 21dropping a teal_highlight square at bottom_left, width_buf=0, height_buf=0
 
-FROM_TEST_NUMBER = 0
-TO_TEST_NUMBER = 180
-CUR_TEST_NUMBER = 0
-
+tests_to_run = {"empty_canvas", "highlighted_empty_canvas", "highlighted_width_1", "highlighted_height_1", "0_width", "from_string", "from_string_highlighted", "drop_in_image_right_top", "drop_in_image_bottom_left", "stacking", "stacking_plus_drop_in_image", "stacking_plus_drop_in_image_diff_layers", "stacking_plus_drop_in_image_diff_layers_inverted", "uncolored_crown_on_colored_pawn", "colored_crown_on_uncolored_pawn", "edge_renders", "more_dropping", "dropping_colors_layers_small", "dropping_colors_layers_medium", "dropping_canvas_resize", "bigger_dropping", "small_place_underneath", "tiny_nested_colors", "medium_nested_colors", "smaller_overlapping_colors", "medium_overlapping_colors", "color_edges", "wrap"}
 
 pawn_w_2p =(
 " △ \n"
@@ -50,120 +47,104 @@ pawn_b_8p=(
 
 SEC="#" + "="*79 + "\n"
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing empty canvas render")
+if "empty_canvas" in tests_to_run:
+  print(f"{SEC}# TEST: Testing empty canvas render")
   img = Image(height=5, width=10)
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing highlighted canvas render")
+if "highlighted_empty_canvas" in tests_to_run:
+  print(f"{SEC}# TEST: Testing highlighted canvas render")
   img = Image(height=5, width=10)
   img.set_color("red_highlight")
   img.render()
   
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing highlighted width-1 canvas render")
+if "highlighted_width_1" in tests_to_run:
+  print(f"{SEC}# TEST: Testing highlighted width-1 canvas render")
   img = Image(height=5, width=1)
   img.set_color("red_highlight")
   img.render()
   
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing highlighted height-1 canvas render")
+if "highlighted_height_1" in tests_to_run:
+  print(f"{SEC}# TEST: Testing highlighted height-1 canvas render")
   img = Image(height=1, width=10)
   img.set_color("red_highlight")
   img.render()
   
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing 0-width canvas render")
+if "0_width" in tests_to_run:
+  print(f"{SEC}# TEST: Testing 0-width canvas render")
   img = Image(height=5, width=0)
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing render on image")
+if "from_string" in tests_to_run:
+  print(f"{SEC}# TEST: Testing render on image")
   img = Image(from_string=pawn_b_8p)
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing render on image with highlight")
+if "from_string_highlighted" in tests_to_run:
+  print(f"{SEC}# TEST: Testing render on image with highlight")
   img = Image(from_string=pawn_b_8p)
   img.set_color("blue_highlight")
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing r_append")
+if "drop_in_image_right_top" in tests_to_run:
+  print(f"{SEC}# TEST: Testing drop_in_image, location=right_top")
   img = Image(from_string=pawn_b_8p)
   imgb = Image(from_string=pawn_w_8p)
-  img.r_append(imgb)
+  img.drop_in_image(imgb, location="right_top")
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing u_append")
+if "drop_in_image_bottom_left" in tests_to_run:
+  print(f"{SEC}# TEST: Testing drop_in_image, location=bottom_left")
   img = Image(from_string=pawn_b_8p)
   imgb = Image(from_string=pawn_w_8p)
-  img.u_append(imgb)
+  img.drop_in_image(imgb, location="bottom_left")
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking")
+if "stacking" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking")
   img = Image(from_string=pawn_b_8p)
   crown = Image(from_string=crown_8p)
   crown.stack_on_image(img)
   crown.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking and r_append (same N layers)")
+if "stacking_plus_drop_in_image" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking and drop_in_image (same N layers), location=right_top")
   img = Image(from_string=pawn_b_8p)
   imgb = Image(from_string=pawn_w_8p)
   crown = Image(from_string=crown_8p)
   img.stack_on_image(crown)
   imgb.stack_on_image(crown)
-  img.r_append(imgb)
+  img.drop_in_image(imgb, location="right_top")
   img.render()
 
-
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking and r_append (different N layers)")
+if "stacking_plus_drop_in_image_diff_layers" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking and drop_in_image (different N layers), location=right_top")
   img = Image(from_string=pawn_b_8p)
   imgb = Image(from_string=pawn_w_8p)
   crown = Image(from_string=crown_8p)
   img.stack_on_image(crown)
-  img.r_append(imgb)
+  img.drop_in_image(imgb, location="right_top")
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking and r_append (different N layers, reverse)")
+if "stacking_plus_drop_in_image_diff_layers_inverted" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking and drop_in_image (different N layers, reverse), location=right_top")
   img = Image(from_string=pawn_b_8p)
   imgb = Image(from_string=pawn_w_8p)
   crown = Image(from_string=crown_8p)
   imgb.stack_on_image(crown)
-  img.r_append(imgb)
+  img.drop_in_image(imgb, location="right_top")
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking uncolored crown on colored pawn")
+if "uncolored_crown_on_colored_pawn" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking uncolored crown on colored pawn")
   img = Image(from_string=pawn_b_8p)
   crown = Image(from_string=crown_8p)
   img.set_color("blue_highlight")
   img.stack_on_image(crown)
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing stacking colored crown on uncolored bottom layer")
+if "colored_crown_on_uncolored_pawn" in tests_to_run:
+  print(f"{SEC}# TEST: Testing stacking colored crown on uncolored bottom layer")
   print("(opaque color should mask imag underneath)")
   img = Image(from_string=pawn_b_8p)
   crown = Image(from_string=crown_8p)
@@ -171,10 +152,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.stack_on_image(crown)
   img.render()
 
-
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing render on images' edges, coloring and uncoloring")
+if "edge_renders" in tests_to_run:
+  print(f"{SEC}# TEST: Testing render on images' edges, coloring and uncoloring")
   img = Image(from_string=
   "12345678\n"
   "12345678\n"
@@ -198,54 +177,49 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.render()
 
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing r_append and u_append together")
+if "more_dropping" in tests_to_run:
+  print(f"{SEC}# TEST: Testing drop_in_image and drop_in_image together")
   rowa = Image(from_string=pawn_b_8p)
   rowa2 = Image(from_string=pawn_w_8p)
-  rowa.r_append(rowa2)
+  rowa.drop_in_image(rowa2, location="right_top")
   rowb = Image(from_string=pawn_w_8p)
   rowb2 = Image(from_string=pawn_b_8p)
-  rowb.r_append(rowb2)
-  rowa.u_append(rowb)
+  rowb.drop_in_image(rowb2, location="right_top")
+  rowa.drop_in_image(rowb, location="bottom_left")
   rowa.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing r_append and u_append with colors and layers (small)")
+if "dropping_colors_layers_small" in tests_to_run:
+  print(f"{SEC}# TEST: Testing drop_in_image and drop_in_image with colors and layers (small)")
   crown = Image(from_string=crown_2p)
   rowa = Image(from_string=pawn_b_2p)
   rowa.set_color("white_highlight")
   rowa.stack_on_image(crown)
   rowa2 = Image(from_string=pawn_w_2p)
-  rowa.set_color("black_highlight")
+  rowa2.set_color("black_highlight")
   rowa2.stack_on_image(crown)
-  rowa.r_append(rowa2)
+  rowa.drop_in_image(rowa2, location="right_top")
   rowa.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing r_append and u_append with colors and layers")
+if "dropping_colors_layers_medium" in tests_to_run:
+  print(f"{SEC}# TEST: Testing drop_in_image and drop_in_image with colors and layers")
   crown = Image(from_string=crown_8p)
   rowa = Image(from_string=pawn_b_8p)
   rowa.set_color("white_highlight")
   rowa.stack_on_image(crown)
   rowa2 = Image(from_string=pawn_w_8p)
   rowa2.stack_on_image(crown)
-  rowa.r_append(rowa2)
+  rowa.drop_in_image(rowa2, location="right_top")
   rowb = Image(from_string=pawn_w_8p)
   rowb.stack_on_image(crown)
   rowb2 = Image(from_string=pawn_b_8p)
   rowb2.set_color("white_highlight")
   rowb2.stack_on_image(crown)
-  rowb.r_append(rowb2)
-  rowa.u_append(rowb)
+  rowb.drop_in_image(rowb2, location="right_top")
+  rowa.drop_in_image(rowb, location="bottom_left")
   rowa.render()
 
-
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing resizing canvas and dropping in images by coordinate (one layer)")
+if "dropping_canvas_resize" in tests_to_run:
+  print(f"{SEC}# TEST: Testing resizing canvas and dropping in images by coordinate (one layer)")
   img = Image(from_string=
   "12345678\n"
   "12345678\n"
@@ -284,10 +258,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   print('-'*80)
 
 
-
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing resizing canvas and dropping in images by location name (one layer)")
+if "bigger_dropping" in tests_to_run:
+  print(f"{SEC}# TEST: Testing resizing canvas and dropping in images by location name (one layer)")
   img = Image(from_string=
   "[xxxxxxxxxxxxxxxxxx]\n"
   "[xxxxxxxxxxxxxxxxxx]\n"
@@ -364,10 +336,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   print('-'*80)
   
 
-
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Placing small image underneath:")
+if "small_place_underneath" in tests_to_run:
+  print(f"{SEC}# TEST: Placing small image underneath:")
   smol_teal_img = Image(from_string=
   "01\n"
   "01"
@@ -392,9 +362,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.render()
 
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing nested coloring tiny:")
+if "tiny_nested_colors" in tests_to_run:
+  print(f"{SEC}# TEST: Testing nested coloring tiny:")
   small_teal_img = Image(from_string=
   "0123\n"
   "0123\n"
@@ -414,9 +383,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.render()
  
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing nested coloring:")
+if "medium_nested_colors" in tests_to_run:
+  print(f"{SEC}# TEST: Testing nested coloring:")
   big_teal_img = Image(from_string=
   "0123456789\n"
   "0123456789\n"
@@ -464,9 +432,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.render()
 
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing overlapping coloring, smaller:")
+if "smaller_overlapping_colors" in tests_to_run:
+  print(f"{SEC}# TEST: Testing overlapping coloring, smaller:")
   
   big_teal_img_small = Image(from_string=
   "012\n"
@@ -497,9 +464,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.drop_in_image_by_coordinates(small_blue_img_small, upper_left_row=1, upper_left_col=3)
   img.render()
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing overlapping coloring:")
+if "medium_overlapping_colors" in tests_to_run:
+  print(f"{SEC}# TEST: Testing overlapping coloring:")
   
   img = big_teal_img.copy()
   print("Base image:")
@@ -519,9 +485,8 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.render()
 
 
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
-  print(f"{SEC}# TEST {CUR_TEST_NUMBER}: Testing color edges")
+if "color_edges" in tests_to_run:
+  print(f"{SEC}# TEST: Testing color edges")
   
   img = big_teal_img.copy()
   print("Base image:")
@@ -535,11 +500,9 @@ if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
   img.drop_in_image_by_coordinates(small_blue_img, upper_left_row=2, upper_left_col=0)
   img.render()
 
-
-
   
-CUR_TEST_NUMBER += 1
-if FROM_TEST_NUMBER <= CUR_TEST_NUMBER <= TO_TEST_NUMBER:
+if "wrap" in tests_to_run:
+  print(f"{SEC}# TEST: Testing wrapping lists of images")
   images_to_wrap = [
           Image(from_string="012\n012\n012", color="green_highlight"),
           Image(from_string="012\n012\n012\n012", color="teal_highlight"),

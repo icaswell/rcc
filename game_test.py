@@ -4,51 +4,39 @@ from name_registry import reset_name_registry
 import time
 
 SEC = "#" + "="*79 + "\n"
-SEC = f"\n{SEC}{SEC}"
-G = Game(STANDARD_CHESS)
-G.render()
 
-SHOULD_I_DO_TESTS = True
-# SHOULD_I_DO_TESTS = False
+tests_to_run = {"move_and_time", "taking", "nonsense_game", "reconstitute_game"}
 
-if SHOULD_I_DO_TESTS:
-  print(f"{SEC}Moving various")
+if "move_and_time" in tests_to_run:
+  print(f"{SEC}Moving various pieces and timing the whole operation")
+  G = Game(STANDARD_CHESS)
+  st = time.time()
+  G.render()
   G.move_top_piece("b1", "c4") # w knight
+  G.render()
   G.move_top_piece("c4", "b5") # w knight
+  G.render()
   G.move_top_piece("e7", "e5")
+  G.render()
   G.move_top_piece("d7", "d6")
+  G.render()
   G.move_top_piece("h8", "f5")
+  G.render()
   G.move_top_piece("e2", "e4")
+  G.render()
   G.move_top_piece("e1", "f3")
+  G.render()
   G.move_top_piece("c1", "c5")  # w bishop
+  G.render()
   G.move_top_piece("a8", "h8")
+  G.render()
   G.move_top_piece("d2", "d4")  # W pawn
+  G.render()
   G.move_top_piece("b2", "b6")  # W pawn
   G.render()
+  total_time = time.time() - st
+  print(f"Took {total_time} seconds ({total_time/12}s per render)")
 
-
-# if SHOULD_I_DO_TESTS:
-#   print(f"{SEC}Select moves")
-#   G.board.highlight_piece_moves_from_square("c5")  # the bishop on the side
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("f5")  # Rook
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("g7")  # Pawn that hasn't moved
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("d4")  # Pawn that has already moved
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("b6")  # pawn that can take but not move
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("g8")  # Knight that can move but not take
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("b5")  # Knight that can move and take
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("f3")  # Queen that can move and take
-#   G.render()
-#   G.board.highlight_piece_moves_from_square("d1")  # King
-#   G.render()
-
-if SHOULD_I_DO_TESTS:
   print(f"{SEC}Take")
   G.move_top_piece("c5", "d6")  # w bishop takes black pawn
   G.render()
@@ -59,10 +47,17 @@ if SHOULD_I_DO_TESTS:
   G.render()
 
 
-if SHOULD_I_DO_TESTS:
+if "nonsense_game" in tests_to_run:
   print(f"{SEC}Nonsense Game")
   reset_name_registry()
   G = Game(STANDARD_CHESS)
   G.render()
   G.play_nonsense_game()
-  
+ 
+if "reconstitute_game" in tests_to_run:
+  print(f"{SEC}reconstitute Game")
+  reset_name_registry()
+  commands = G.command_history
+  print(commands)
+  G = Game(STANDARD_CHESS)
+  G.execute_commands(commands, display=True)

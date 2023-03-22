@@ -1,4 +1,5 @@
 import os, sys
+from typing import List
 
 from name_registry import register_name, register_unique_name, random_string
 
@@ -59,17 +60,9 @@ def colorize(s: str, color: str) -> str:
 
 class Pixel(): pass  # forward declaration
 class Pixel():
-    def __init__(self, val:str=" ", color:str="", json_pxl=None):
-      if json_pxl:
-        self.val = json_pxl["val"]
-        self.color_open_tag = json_pxl["color_open_tag"]
-      else:
+    def __init__(self, val:str=" ", color:str=""):
         self.val = val
         self.set_color(color)
-
-
-    def to_json(self):
-        return {"val": self.val,  "color_open_tag": self.color_open_tag}
 
     def debug_string(self):
         s = f"{self.val}"
@@ -147,6 +140,8 @@ class Image():
           self.add_transparency(layer_name=f"{self.name}_base")
 
         self.set_color(color)
+        self.flattened = None
+        self.image_has_changed_since_flattening = False
 
     def add_transparency(self, layer_name:str=None) -> None:
           new_pixels = [[Pixel() for i in range(self.width)] for j in range(self.height)]
@@ -155,45 +150,15 @@ class Image():
               layer_name = register_unique_name("transparency")
           self.layer_unique_ids.append(layer_name)
         
+    def get_top_visible_pixel(self, i:int, j:int) -> Pixel:
+        # traverse the layers from top to bottom
+        ret = Pixel()
+        for layer in self.layers:
+            ret.stack_on_pixel(layer[i][j])
+        return ret
 
-    def print_debug(self) -> None:
-        print(f"Image '{self.name}' has  {len(self.layers)} layers and shape (h={self.height}, w={self.width})")
-        for i, layer in enumerate(self.layers):
-          print(f"\tlayer {i} (ID={self.layer_unique_ids[i]}): (h={len(layer)}, w={len(layer[i])})")
-          for row in layer:
-            for pixel in row: 
-              print(pixel.debug_string(), end=" | ")
-            print()
-    def debug_print(self) -> None:
-        self.print_debug()
-
-    def set_pixel(self, row_i:int, col_j:int, pixel_val:str, layer_i:int=-1, color:str=None) -> None:
-        self.layers[layer_i][row_i][col_j].set_value(pixel_val)
-        if color:
-            self.layers[layer_i][row_i][col_j].set_color(color)
-
-
-    def print_in_string(self, s:str, location:str="lower_right", color:str=None) -> None:
-        """Make a new transparent layer and print a string on it.
-        """
-        n_rows_this_message_will_span = len(s) // self.width
-        n_cols_in_last_row = len(s) % self.width
-        if location == "lower_right":
-            row_offset = (self.height - 1) - n_rows_this_message_will_span 
-            col_offset = (self.width) - n_cols_in_last_row
-        elif location == "upper_left":
-          row_offset = 0
-          col_offset = 0
-        else:
-          raise ValueError("Not Implemented")
-
-        self.add_transparency()
-        for row_i in range(self.height):
-            for col_j in range(self.width):
-                string_idx = col_j + row_i*self.width
-                if string_idx >= len(s): break
-                self.set_pixel(row_i + row_offset, col_j + col_offset, s[string_idx], color=color)
-
+    # def pop_layer(self, layer_id = None):
+    #     pass
 
     def expand_canvas(self, new_height: int, new_width: int) -> None:
         if new_height < self.height and new_width < self.width:
@@ -220,6 +185,79 @@ class Image():
         self.width = new_width
 
 
+    def print_debug(self) -> None:
+        print(f"Image '{self.name}' has  {len(self.layers)} layers and shape (h={self.height}, w={self.width})")
+        for i, layer in enumerate(self.layers):
+          print(f"\tlayer {i} (ID={self.layer_unique_ids[i]}): (h={len(layer)}, w={len(layer[i])})")
+          for row in layer:
+            for pixel in row: 
+              print(pixel.debug_string(), end=" | ")
+            print()
+    def debug_print(self) -> None:
+        self.print_debug()
+
+    def flatten(self) -> List[List[str]]:
+        """Return a flattened copy of this image.
+        """
+        # Re-cache if the image has changed
+        # Note that this is likely to be a source of bugs...
+        # TODO change updating self.image_has_changed_since_flattening
+        # to be a function decorator
+        if self.image_has_changed_since_flattening or not self.flattened:
+          out_pixels = self._copy_layer(self.layers[-1])
+          for row_i in range(self.height):
+              for col_j in range(self.width):
+                  out_pixels[row_i][col_j] = self.get_top_visible_pixel(row_i, col_j)
+          self.flattened = out_pixels
+          self.image_has_changed_since_flattening = False
+
+        return self.flattened
+
+    def check_image_dimensions(self) -> None:
+        # a debug method
+        for layer_i, layer in enumerate(self.layers):
+          if len(layer) != self.height:
+              raise ValueError(f"Image {img.name} has height {self.height}, but layer {self.layer_unique_ids[layer_i]} (#{layer_i}) has length {len(layer)}")
+          for row_i, row in enumerate(layer):
+            if len(row) != self.width:
+                  raise ValueError(f"Image {img.name} has width {self.width}, but row #{row_i} in layer {self.layer_unique_ids[layer_i]} (#{layer_i}) has length {len(row)}")
+
+    #==========================================================
+    #==========================================================
+    # Methods that modify how the image looks
+    # And thus update the cached flattened image
+    # except _get_pixel, which is internal only, and drop_in_image, which calls drop_in_image_by_coordinates
+
+
+    def _set_pixel(self, row_i:int, col_j:int, pixel_val:str, layer_i:int=-1, color:str=None) -> None:
+        self.layers[layer_i][row_i][col_j].set_value(pixel_val)
+        if color:
+            self.layers[layer_i][row_i][col_j].set_color(color)
+      
+
+    def print_in_string(self, s:str, location:str="lower_right", color:str=None) -> None:
+        """Make a new transparent layer and print a string on it.
+        """
+        n_rows_this_message_will_span = len(s) // self.width
+        n_cols_in_last_row = len(s) % self.width
+        if location == "lower_right":
+            row_offset = (self.height - 1) - n_rows_this_message_will_span 
+            col_offset = (self.width) - n_cols_in_last_row
+        elif location == "upper_left":
+          row_offset = 0
+          col_offset = 0
+        else:
+          raise ValueError("Not Implemented")
+
+        self.add_transparency()
+        for row_i in range(self.height):
+            for col_j in range(self.width):
+                string_idx = col_j + row_i*self.width
+                if string_idx >= len(s): break
+                self._set_pixel(row_i + row_offset, col_j + col_offset, s[string_idx], color=color)
+        self.image_has_changed_since_flattening = True
+
+
     def drop_in_image_by_coordinates(self, image: Image, upper_left_row: int, upper_left_col: int) -> None:
        assert upper_left_row >= 0 and upper_left_col >= 0
        new_height = upper_left_row + image.height
@@ -231,6 +269,7 @@ class Image():
            for col_j in range(image.width):
                new_pixel = new_pixels[row_i][col_j]
                self.layers[-1][row_i + upper_left_row][col_j + upper_left_col].stack_on_pixel(new_pixel)
+       self.image_has_changed_since_flattening = True
 
     def drop_in_image(self, image: Image, location:str, height_buf:int=0, width_buf:int=0) -> None:
         # location can be:
@@ -259,24 +298,7 @@ class Image():
             raise ValueError(f"derop_in_image with location={location}, height_buf={height_buf}, width_buf={width_buf} causes one of the following to be negative: upper_left_col={upper_left_col}, upper_left_row={upper_left_row}")
 
         self.drop_in_image_by_coordinates(image, upper_left_row, upper_left_col)
-       
-    def get_top_visible_pixel(self, i:int, j:int) -> Pixel:
-        # traverse the layers from top to bottom
-        ret = Pixel()
-        for layer in self.layers:
-            ret.stack_on_pixel(layer[i][j])
-        return ret
-
-
-    def flatten(self) :
-        """Return a flattened copy of this image.
-        """
-        out_pixels = self._copy_layer(self.layers[-1])
-        for row_i in range(self.height):
-            for col_j in range(self.width):
-                out_pixels[row_i][col_j] = self.get_top_visible_pixel(row_i, col_j)
-        return out_pixels
-
+ 
     def stack_on_image(self, image: Image) -> None:
         #  sort of like "over_append"
         self.layers += self._copy_layers(image.layers)
@@ -284,32 +306,34 @@ class Image():
         # TODO: currently, uou can stack on images of different sizes, and the behavior is unclear; consider fixing, e.g.:
         # if occupant.img.width != width: raise ValueError(f"Cannot stack {occupant.name}'s image of width {occupant.img.width} into square {self.name} of width {width}")
         # if occupant.img.height != height: raise ValueError(f"Cannot stack {occupant.name}'s image of height {occupant.img.height} into square {self.name} of height {height}")
+        self.image_has_changed_since_flattening = True
 
-    # def r_append(self, other_image:Image) -> None:
-    #     # append to right
-    #     # WARNING this method flattens all the images together and only keeps the top layer!
-    #     # doesn't deal with layers. Therefore, only for printing.
-    #     if self.height != other_image.height:
-    #         raise ValueError(f"Image '{self.name}' of height {self.height} can't r_append '{other_image.name}' of height {other_image.height}")
+    def r_append(self, other_image:Image) -> None:
+        # append to right
+        # WARNING this method flattens all the images together and only keeps the top layer!
+        # doesn't deal with layers. Therefore, only for printing.
+        if self.height != other_image.height:
+            raise ValueError(f"Image '{self.name}' of height {self.height} can't r_append '{other_image.name}' of height {other_image.height}")
 
-    #     pixels = self.flatten()
-    #     other_img_pixels = other_image.flatten()
-    #     for row_i in range(self.height):
-    #         pixels[row_i] = pixels[row_i] + other_img_pixels[row_i]
-    #     self.layers = [pixels]
-    #     self.width += other_image.width
+        pixels = self.flatten()
+        other_img_pixels = other_image.flatten()
+        for row_i in range(self.height):
+            pixels[row_i] = pixels[row_i] + other_img_pixels[row_i]
+        self.layers = [pixels]
+        self.width += other_image.width
+        self.image_has_changed_since_flattening = True
 
-    # def u_append(self, other_image:Image) -> None:
-    #     # append under
-    #     # WARNING this method flattens all the images together and only keeps the top layer!
-    #     # So it should only be used for rendering.
-    #     pixels = self.flatten()
-    #     if self.width != other_image.width:
-    #         raise ValueError(f"Can't concatenate image {self.name} with shape (h={self.height}, w={self.width}) with image {other_image.name} with shape (h={other_image.height}, w={other_image.width})")
-    #     pixels += other_image.flatten()
-    #     self.layers = [pixels]
-    #     self.height += other_image.height
-
+    def u_append(self, other_image:Image) -> None:
+        # append under
+        # WARNING this method flattens all the images together and only keeps the top layer!
+        # So it should only be used for rendering.
+        pixels = self.flatten()
+        if self.width != other_image.width:
+            raise ValueError(f"Can't concatenate image {self.name} with shape (h={self.height}, w={self.width}) with image {other_image.name} with shape (h={other_image.height}, w={other_image.width})")
+        pixels += other_image.flatten()
+        self.layers = [pixels]
+        self.height += other_image.height
+        self.image_has_changed_since_flattening = True
 
     def set_color(self, color:str) -> None:
         if not self.width: return
@@ -317,15 +341,7 @@ class Image():
         for row_i in range(self.height):
           for col_j in range(self.width):
             pixels[row_i][col_j].set_color(color)
-
-    def check_image_dimensions(self) -> None:
-        # a debug method
-        for layer_i, layer in enumerate(self.layers):
-          if len(layer) != self.height:
-              raise ValueError(f"Image {img.name} has height {self.height}, but layer {self.layer_unique_ids[layer_i]} (#{layer_i}) has length {len(layer)}")
-          for row_i, row in enumerate(layer):
-            if len(row) != self.width:
-                  raise ValueError(f"Image {img.name} has width {self.width}, but row #{row_i} in layer {self.layer_unique_ids[layer_i]} (#{layer_i}) has length {len(row)}")
+        self.image_has_changed_since_flattening = True
 
 
     def add_layer_from_string(self, s:str, layer_name=None) -> None:
@@ -351,6 +367,7 @@ class Image():
         if not layer_name:
             layer_name = register_unique_name("img_from_string")
         self.layer_unique_ids.append(layer_name)
+        self.image_has_changed_since_flattening = True
 
 
     def set_all_pixels_to_value(self, v:str) -> None:
@@ -359,6 +376,11 @@ class Image():
         for row_i in range(self.height):
             for col_j in range(self.width):
                 pixels[row_i][col_j].set_value(v)
+        self.image_has_changed_since_flattening = True
+
+    #==========================================================
+    #==========================================================
+    # other
 
     def rasterize(self) -> str:
         pixels = self.flatten()

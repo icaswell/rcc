@@ -1,6 +1,6 @@
 from graphics import Image
 from name_registry import register_name
-from asset_library import STANDARD_PIECES
+from asset_library import STANDARD_PIECES, OTHER_PIECES
 
 class PieceMoves():
     """This class is essentially a glorified dict + function decorator.
@@ -22,6 +22,12 @@ class PieceMoves():
 
         self.id_to_move = {str(i): square_i for i, square_i in enumerate(self.taking + self.nontaking)}
 
+    def __str__(self):
+        move_to_id = {move:i for i, move in self.id_to_move.items()}
+        taking = "; ".join([f"{move_to_id[sq]}:{sq.name}" for sq in self.taking])
+        nontaking = "; ".join([f"{move_to_id[sq]}:{sq.name}" for sq in self.nontaking])
+        return f"taking: {taking}  || nontaking: {nontaking}"
+
 class Piece(): pass
 class Piece():
     # piece attributes
@@ -32,13 +38,17 @@ class Piece():
     alive = True
     has_moved = False
     square_this_is_on = None
+    taking_method = "normal"  # TODO should be an enum; oen of "normal", "pushing", "swapping"
 
     special_stuff = {}  # any special enchantments or attributes
     # e.g. that it has the one ring, or is a successor, or riastrad, guzunder
 
 
-    def __init__(self, team, piece_type, name):
-        self.img = Image(STANDARD_PIECES[piece_type][team], color="none", name=f"{name}_img")
+    def __init__(self, team, piece_type, name, img:Image=None):
+        if img:
+            self.img = img
+        else:
+            self.img = Image(STANDARD_PIECES[piece_type][team], color="none", name=f"{name}_img")
         register_name(name)
         self.name = name
         self.type = piece_type
@@ -172,6 +182,34 @@ class King(Piece):
         directions = [["n"],["ne"],["e"],["se"],["s"],["sw"],["w"], ["nw"]]
         all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions) 
         return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
+
+
+
+
+class Zamboni(Piece):
+    taking_method = "pushing"
+    def __init__(self, team, name):
+        img = Image(OTHER_PIECES["zamboni"], color="none", name=f"{name}_img")
+        super().__init__(team=team, name=name, piece_type="zamboni", img=img)
+
+    def get_possible_moves(self) -> PieceMoves:
+        directions = [["n"],["ne"],["e"],["se"],["s"],["sw"],["w"], ["nw"]]
+        all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions) 
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
+
+
+class Swapper(Piece):
+    def __init__(self, team, name):
+        img = Image(OTHER_PIECES["swapper"], color="none", name=f"{name}_img")
+        super().__init__(team=team, name=name, piece_type="swapper", img=img)
+
+    def get_possible_moves(self) -> PieceMoves:
+        directions = [["n"],["ne"],["e"],["se"],["s"],["sw"],["w"], ["nw"]]
+        all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions) 
+        return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
+
+
+
 
 # ALL_PIECES = {
 #       "pawn": Pawn,

@@ -216,4 +216,28 @@ STANDARD_PIECES = {
 }
 
 
+zamboni =(
+"                \n"
+"   █████████    \n"
+"   █████████    \n"
+"   █████████    \n"
+"   █████████    \n"
+"   █████████    \n"
+"                \n"
+"                ")
 
+
+swapper =(
+"      ▜█▛       \n"
+"     ▄▄█▄▄      \n"
+"       █        \n"
+"     /   \      \n"
+"    |  O  |     \n"
+"     \   /      \n"
+"       -        \n"
+"                ")
+
+OTHER_PIECES = {
+        "zamboni": zamboni,
+        "swapper": swapper
+        }

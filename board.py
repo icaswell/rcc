@@ -1,10 +1,10 @@
 from graphics import Image
 from name_registry import register_name
 from piece import Piece, PieceMoves
+from typing import List
 
+from constants import *
 
-# an "enum"
-MODES_OF_MOVEMENT = ["normal", "jumping"]
 
 ROW_OFFSET_TO_NAME = {
     (-1, 0): "n",
@@ -16,11 +16,6 @@ ROW_OFFSET_TO_NAME = {
     (0, -1): "w",
     (-1, -1): "nw",
 }
-
-SELECT_COLOR = "pink_highlight"
-PIECE_MOVE_SELECT_COLOR = "yellow_highlight"
-PIECE_TAKABLE_SELECT_COLOR = "red_highlight"
-ANNOTATE_COLOR = "teal_highlight"
 
 class Square(): pass  # forward declatation for typecheck lol
 class Square():
@@ -131,7 +126,7 @@ class Square():
 
     def get_squares_from_directions_list(self, piece:Piece, directions_list: list, mode:str="normal") -> list:
         if mode not in MODES_OF_MOVEMENT:
-            raise ValueError(f"mode {mode} ois not supported; only {MODES_OF_MOVEMENT} are available.")
+            raise ValueError(f"mode {mode} is not supported; only {MODES_OF_MOVEMENT} are available.")
         if not isinstance(directions_list, list) or not directions_list:
             raise ValueError("get_squares_from_directions_list needs a nonempty list, like [['n'], ['s']]")
         if not isinstance(directions_list[0], list):
@@ -143,22 +138,30 @@ class Square():
               reachable_squares.append(reachable_square)
         return reachable_squares
 
-    def get_square_from_directions(self, piece:Piece, directions:list, mode="normal") -> Square:
-        """Given a list of directions like ["n", "nw", "e"], moves (e.g. North, Northwest, East)
+
+    def get_square_from_directions(self, piece:Piece, directions:list, mode="normal", stop_at_end_of_board=False) -> Square:
+        """Returns the final square you reach, or None if you can't reach a square given those directions.
         returns None if none exists
+
+        Args:
+          piece: the piece that is moving
+          directions: a list of directions like ["n", "nw", "e"], moves (e.g. North, Northwest, East)
+          mode: one of MODES_OF_MOVEMENT; eg. "jumping" for a Knight and "normal" otherwise.
+          stop_at_end_of_board: if the directions run off the edge of the board, return None if stop_at_end_of_board==False, or the square on th edge of the board elsewise.
         """
         if mode not in MODES_OF_MOVEMENT:
-            raise ValueError(f"mode {mode} ois not supported; only {MODES_OF_MOVEMENT} are available.")
+            raise ValueError(f"mode {mode} is not supported; only {MODES_OF_MOVEMENT} are available.")
         if not isinstance(directions, list) or not directions:
             raise ValueError("get_square_from_directions needs a nonempty list, like ['n', 's']")
         if not isinstance(directions[0], str):
             raise ValueError("get_square_from_directions needs a nonempty list, like ['n', 's']")
-        reachable_squares = []
         cur_square = self
         for i, direction in enumerate(directions):
-            cur_square = cur_square.neighbors.get(direction, None)
-            if cur_square is None: return None
-            cur_square_tangibility = cur_square.relative_tangibility(piece)
+            next_square = cur_square.neighbors.get(direction, None)
+            if next_square is None:
+                return cur_square if stop_at_end_of_board else None
+            cur_square = next_square
+            cur_square_tangibility = cur_square.relative_tangibility(piece) if piece else "transparent"
             if cur_square_tangibility == "unpassintoable":
                 # unpassintoable: e.g. what happens if this square has a piece on your same team?
                 if mode == "normal":
@@ -212,20 +215,23 @@ class Board():
         self.square_annotations = {}
         self.square_height = game_config["square_height"]
         self.square_width = game_config["square_width"] 
+        self.board_height = game_config["board_height"]
+        self.board_width = game_config["board_width"] 
         self.col_names_to_idx = {a:i for i, a in enumerate('abcdefgh')}
         self.idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
 
         # Initialize all the Square objects
-        for i in range(game_config["board_height"]):
+        for row_i in range(game_config["board_height"]):
             self.board_grid.append([])
-            for j in range(game_config["board_width"]):
-                if (i+j)%2: 
+            for col_j in range(game_config["board_width"]):
+                if (row_i + col_j)%2: 
                   sq_color ="black_highlight"
                 else:
                   sq_color ="white_highlight"
                 # sq_color = "none"
-                square = Square(width=self.square_width, height=self.square_height, name=f"square_{i}{j}", color=sq_color)
-                self.board_grid[i].append(square)
+                alpha_name = f"{self.idx_to_col_names[col_j]}{row_i + 1}"
+                square = Square(width=self.square_width, height=self.square_height, name=alpha_name, color=sq_color)
+                self.board_grid[row_i].append(square)
                 self.square_map[square.name] = square
                 self.square_annotations[square.name] = []
 
@@ -243,14 +249,17 @@ class Board():
 
         # add the pretty edges of the board
         # this could be done in a simpler way with the newer graphics methods
-        vertical_border_img = "  \n"
+        v_border_width = 2
+        h_border_width = 1
+        v_border_block = " "*v_border_width + "\n"
+        vertical_border_img = v_border_block*h_border_width
         for i in range(game_config["board_height"]):
-            vert_chunk = [f"  \n"] * self.square_height
+            vert_chunk = [v_border_block] * self.square_height
             vert_chunk[self.square_height // 2] = f" {i + 1}\n"
             vertical_border_img += ''.join(vert_chunk)
-        vertical_border_img += "  "
+        vertical_border_img += v_border_block[0:-1]  # remove newline
 
-        horizontal_border_img = ""
+        horizontal_border_img = v_border_block[0:-1]
         for i in range(game_config["board_width"]):
             horiz_chunk = [" "]* self.square_width
             horiz_chunk[self.square_width//2] = self.idx_to_col_names[i].upper()
@@ -287,7 +296,6 @@ class Board():
               direction_name = ROW_OFFSET_TO_NAME[(row_offset, col_offset)]
               # TODO did I correctly add a pointer here? or is there now a duplicate of this square here?
               square.neighbors[direction_name] = self.board_grid[adjacent_row][adjacent_col]
-        print()
 
 
 
@@ -306,32 +314,43 @@ class Board():
 
     def get_image(self) -> Image:
         # flipped classroom overrides this somehow
-        rows = []
-        for i in range(len(self.board_grid)):
+        # rows = []
+        total_width = self.square_width*self.board_width + 2*self.left_border.width
+        total_height = self.square_height*self.board_height + 2*self.top_border.height
+        
+        board_image = Image(width=self.square_width*self.board_width, height=self.square_height*self.board_height)
+        for row_i in range(self.board_height):
             # final_row_image = Image(height=self.square_height, width=0) # self.board_grid[i][0].get_image().copy()
-            final_row_image = Image(height=self.square_height, width=0) # self.board_grid[i][0].get_image().copy()
-            for j in range(len(self.board_grid[i])):
-                square = self.board_grid[i][j]
+            for col_j in range(self.board_width):
+                square = self.board_grid[row_i][col_j]
                 square_img = square.get_image()
                 if square.name in self.highlighted_squares:
                     square_img.set_color(self.highlighted_squares[square.name])
                 if square.name in self.square_annotations:
                     annotation = ';'.join(self.square_annotations[square.name])
                     square_img.print_in_string(annotation, color=ANNOTATE_COLOR, location="lower_right")
-                final_row_image.r_append(square_img)
-            rows.append(final_row_image)
-        for row in rows[1:]:
-            rows[0].u_append(row)
+                # final_row_image.drop_in_image(square_img, location="right_top")
+                row_x  = row_i*self.square_height + self.top_border.height
+                col_x = col_j*self.square_width + self.left_border.width
+                board_image.drop_in_image_by_coordinates(square_img, upper_left_row=row_x, upper_left_col=col_x)
+            # rows.append(final_row_image)
+        # for row in rows[1:]:
+        #     rows[0].drop_in_image(row, location="bottom_left")
  
         # add borders
-        half_bordered = self.top_border.copy()
-        half_bordered.u_append(rows[0])
-        half_bordered.u_append(self.bottom_border)
-        full_bordered = self.left_border.copy()
-        full_bordered.r_append(half_bordered)
-        full_bordered.r_append(self.right_border)
+        board_image.drop_in_image_by_coordinates(self.left_border, upper_left_row=0, upper_left_col=0)
+        board_image.drop_in_image_by_coordinates(self.top_border , upper_left_row=0, upper_left_col=0)
+        board_image.drop_in_image_by_coordinates(self.left_border, upper_left_row=0, upper_left_col=self.board_width*self.square_width + self.left_border.width)
+        board_image.drop_in_image_by_coordinates(self.top_border, upper_left_row=self.board_height*self.square_height + self.top_border.height, upper_left_col=0)
+        # half_bordered = self.top_border.copy()
+        # # half_bordered.drop_in_image(rows[0], location="bottom_left")
+        # half_bordered.drop_in_image(board_image, location="bottom_left")
+        # half_bordered.drop_in_image(self.bottom_border, location="bottom_left")
+        # full_bordered = self.left_border.copy()
+        # full_bordered.drop_in_image(half_bordered, location="right_top")
+        # full_bordered.drop_in_image(self.right_border, location="right_top")
 
-        return full_bordered
+        return board_image
 
     def move_top_piece(self, start_square:Square, end_square:Square) -> list:
         """Returns a list of dead pieces after this move.
@@ -339,6 +358,14 @@ class Board():
         return self.move_piece(self.get_pieces_on_square(start_square)[0], end_square)
 
     def move_piece(self, piece:Piece, end_square:Square) -> list:
+        if piece.taking_method == "normal":
+            return self.move_piece_proper(piece, end_square)
+        elif piece.taking_method == "pushing":
+            return self.push_from_piece(piece, end_square)
+        else:
+            assert False
+
+    def move_piece_proper(self, piece:Piece, end_square:Square) -> list:
         """Returns a list of dead pieces after this move.
         This does NOT ensure that the piece actually CAN move to this square!
         That is the responsibility of the caller.
@@ -384,8 +411,55 @@ class Board():
         return pieces_to_remove_from_square
 
 
+    def direction_between_neighbor_squares(self, square_a:Square, square_b:Square) -> str:
+        for direction, neighbor in square_a.neighbors.items():
+            if neighbor == square_b:
+                return direction
+        raise ValueError("Squares {square_a} and {square_b} are not neighbors")
+
+
+    def push_from_piece(self, piece:Piece, landing_square:Square) -> List[Piece]:
+        direction = self.direction_between_neighbor_squares(piece.square_this_is_on, landing_square)
+        taken_pieces = self.push(landing_square, direction)
+        self.move_piece_proper(piece, landing_square)
+        return taken_pieces
+
+    def push(self, first_pushed_square, direction) -> List[Piece]:
+        """
+        # push all pieces in some direction, activating the relevant on/off actions if needed
+        returns taken pieces
+        """
+        cur_square = first_pushed_square
+        occupants_in_limbo = first_pushed_square.occupants
+        cur_square.occupants = []
+        while True:
+            # TODO this will need to change if we on;y want some types of occupants pushed
+            next_square = cur_square.neighbors.get(direction, None)
+            if next_square is None:
+                # You have pushed off the edge of the board and these pieces die!!
+                # Design decision: this is death and not the ether.
+                for occ in occupants_in_limbo:
+                    occ.alive = False
+                return occupants_in_limbo
+
+            next_square_was_empty = not next_square.occupants
+            occupants_in_limbo_tmp = next_square.occupants
+            # take the occupants off the square
+            # NOT doing the following: if you are pushed you don't get to activate your moving abilities.
+            # for occ in occupants_in_limbo:
+            #   occ.action_when_vacates(next_square)
+            next_square.occupants = occupants_in_limbo
+            occupants_in_limbo = occupants_in_limbo_tmp
+            if next_square_was_empty:
+                break
+            else:
+               cur_square = next_square
+
+        return []
+
+
     def dehighlight_all(self) -> None:
-        """TODO: "highlights" and "annotations" should be more unified in name.
+        """TODO: "highlights" and "annotations" should be more unified in name, because they are the same sort of thing.
         """
         self.highlighted_squares = {}
         for square_name in self.square_annotations:
@@ -409,40 +483,37 @@ class Board():
         return self.board_grid[row_idx][col_idx]
 
 
-    def highlight_and_get_piece_moves_from_square(self, square:Square) -> PieceMoves:
-        """TODO: it's unclear whether this should be here or in game.py.
-        Currently game.py handles selecting, but board.py handles highlighting squares on the board.
-        """
+    def get_piece_moves_from_square(self, square:Square) -> PieceMoves:
         square = self.square_from_a1_coordinates(square)
-        if len(square.occupants) != 1:
-            raise ValueError("Square must have exactly one occupant for this method")
-        return self.highlight_and_get_piece_moves(square.occupants[0])
+        if not square.occupants: return
+        if len(square.occupants) > 1:
+            raise ValueError("Square must have one or fewer occupants for this method")
+        return square.occupants[0].get_possible_moves()
 
-    def highlight_and_get_piece_moves(self, piece:Piece) -> PieceMoves:
-        if not piece:
-            raise ValueError("Empty piece given as input")
-        self.dehighlight_all()
-        
-        piece_moves = piece.get_possible_moves()
-        # for i, square in enumerate(piece_moves):
-        self.highlighted_squares.update({square.name:PIECE_MOVE_SELECT_COLOR for square in piece_moves.nontaking})
-        self.highlighted_squares.update({square.name:PIECE_TAKABLE_SELECT_COLOR for square in piece_moves.taking})
-        self.highlighted_squares.update({piece.square_this_is_on.name:SELECT_COLOR})
-        for move_id, square in piece_moves.id_to_move.items():
-            self.square_annotations[square.name].append(move_id)
-        return piece_moves
+    def highlight_square(self, square:Square, color:str=SELECT_COLOR) -> None:
+        self.highlighted_squares.update({square.name:color})
 
-    # def select_square(self, square_name, continue_existing_selection=False):
-    #     """
-    #     continue_existing_selection: if True, don't deselect existing selected peices.
-    #     """
-    #     if not square_name:
-    #         raise ValueError("Cannot select square with empty input")
-    #     if not continue_existing_selection:
-    #         self.deselect_all()
-    #     if isinstance(square_name, Square):
-    #         square_name = square_name.name
-    #     self.highlighted_squares.update({square_name:SELECT_COLOR})
+    def dehighlight_square(self, square:Square) -> None:
+        if not square: return
+        if square.name not in self.highlighted_squares:
+          return
+          # this is actually not an error:
+          #     raise ValueError(f"{square.name} is not highlighted. Only highlighted squares are {[s.name for s in self.highlighted_squares]}")
+        del self.highlighted_squares[square.name]
+
+    # def get_piece_moves(self, piece:Piece) -> PieceMoves:
+    #     if not piece:
+    #         raise ValueError("Empty piece given as input")
+    #     # self.dehighlight_all()
+    #     
+    #     piece_moves = piece.get_possible_moves()
+    #     # for i, square in enumerate(piece_moves):
+    #     # self.highlighted_squares.update({square.name:PIECE_MOVE_SELECT_COLOR for square in piece_moves.nontaking})
+    #     # self.highlighted_squares.update({square.name:PIECE_TAKABLE_SELECT_COLOR for square in piece_moves.taking})
+    #     # self.highlighted_squares.update({piece.square_this_is_on.name:SELECT_COLOR})
+    #     # for move_id, square in piece_moves.id_to_move.items():
+    #     #     self.square_annotations[square.name].append(move_id)
+    #     return piece_moves
 
     def add_new_piece(self, piece:Piece, row:int, col:int) -> None:
        piece.action_when_lands_on(self.board_grid[row][col])
@@ -457,13 +528,4 @@ class Board():
     def remove_piece_from_square(self, square_name:str, piece_name:str) -> None:
         square = self.square_map[square_name]
         square.remove_occupant(piece_name)
-
-    # def get_possible_moves(self, piece):
-    #     pass
-
-
-    def push(self, square, direction) -> None:
-        # push all pieces in some direction, activating the relevant on/off actions if needed
-        pass
-
 # TODO ensure when placing a piece that it can only be in one place?
