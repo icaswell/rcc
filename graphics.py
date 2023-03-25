@@ -1,4 +1,5 @@
 import os, sys
+from typing import Union, List, Tuple
 
 from name_registry import register_name, register_unique_name, random_string
 
@@ -99,6 +100,33 @@ class Pixel():
       ret.color_open_tag = self.color_open_tag
       return ret
         
+    def layer_under_pixel(self, other_pixel: Pixel) -> bool:
+      """If other_pixel is under this pixel, what does the pixel look like?
+      Treats colored pixels as opaque. If the result is opaque, returns False>
+
+      Inductive Assumption: self has no color
+      """
+
+      if other_pixel.color_open_tag == "":
+          if other_pixel.val == " ":
+              # fully transparent pixel
+              return True
+          else:
+              # pixel with transparent background but value
+              # new pixel keeps bottom pixel's color but top pixel's value
+              if self.val == " ":
+                self.val = other_pixel.val
+              return True
+      else:
+        # we are stacking over a colored pixel; it is fully opaque.
+        self.color_open_tag =  other_pixel.color_open_tag
+        if self.val == " ":
+          self.val = other_pixel.val
+        return True
+      
+
+
+        
     def stack_on_pixel(self, other_pixel: Pixel) -> None:
       """If other_pixel is on top of this pixel, what does the pixel look like?
       Treats colored pixels as opaque.
@@ -173,26 +201,29 @@ class Image():
             self.layers[layer_i][row_i][col_j].set_color(color)
 
 
-    def print_in_string(self, s:str, location:str="lower_right", color:str=None) -> None:
+    def print_in_string(self, s:str, location:Union[str,Tuple[int, int]]="lower_right", color:str=None) -> None:
         """Make a new transparent layer and print a string on it.
         """
         n_rows_this_message_will_span = len(s) // self.width
         n_cols_in_last_row = len(s) % self.width
         if location == "lower_right":
-            row_offset = (self.height - 1) - n_rows_this_message_will_span 
-            col_offset = (self.width) - n_cols_in_last_row
+          row_offset = (self.height - 1) - n_rows_this_message_will_span 
+          col_offset = (self.width) - n_cols_in_last_row
         elif location == "upper_left":
           row_offset = 0
           col_offset = 0
+        elif isinstance(location, tuple):
+          row_offset = location[0]
+          col_offset = location[1]
         else:
           raise ValueError("Not Implemented")
 
-        self.add_transparency()
-        for row_i in range(self.height):
-            for col_j in range(self.width):
-                string_idx = col_j + row_i*self.width
-                if string_idx >= len(s): break
-                self.set_pixel(row_i + row_offset, col_j + col_offset, s[string_idx], color=color)
+        # self.add_transparency()
+
+        for i, c in enumerate(s):
+            row_i =  row_offset + (i + col_offset)//self.width
+            col_j = (i + col_offset)%self.width
+            self.set_pixel(row_i, col_j, c, color=color)
 
 
     def expand_canvas(self, new_height: int, new_width: int) -> None:
@@ -263,8 +294,11 @@ class Image():
     def get_top_visible_pixel(self, i:int, j:int) -> Pixel:
         # traverse the layers from top to bottom
         ret = Pixel()
-        for layer in self.layers:
+        for layer in self.layers: #[::-1]:
             ret.stack_on_pixel(layer[i][j])
+            # If we have reached a fully transparent state
+            # if not ret.layer_under_pixel(layer[i][j]):
+            #   break
         return ret
 
 
@@ -272,6 +306,9 @@ class Image():
         """Return a flattened copy of this image.
         """
         out_pixels = self._copy_layer(self.layers[-1])
+        if len(self.layers) == 1:
+            # this tiny optimization gives a 15% speedup
+            return out_pixels
         for row_i in range(self.height):
             for col_j in range(self.width):
                 out_pixels[row_i][col_j] = self.get_top_visible_pixel(row_i, col_j)
@@ -362,11 +399,16 @@ class Image():
 
     def rasterize(self) -> str:
         pixels = self.flatten()
-        printstring = ""
-        for row_i in range(self.height):
-            for col_j in range(self.width):
-                printstring += pixels[row_i][col_j].surface()
-            printstring += "\n"
+        return "\n".join(
+                         ["".join(
+                             [pixels[row_i][col_j].surface() for col_j in range(self.width)])
+                          for row_i in range(self.height)]
+                )
+        # printstring = ""
+        # for row_i in range(self.height):
+        #     for col_j in range(self.width):
+        #         printstring += pixels[row_i][col_j].surface()
+        #     printstring += "\n"
         return printstring
 
     def render(self) -> None:
@@ -404,7 +446,7 @@ def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
      d e f 
      g 
      """
-    if not images: return None
+    if not images: return Image(height=1, width=0)
     if len(images) == 1: return images[0]
     widths = [img.width for img in images]
     if any(w > width for w in widths):
@@ -415,7 +457,7 @@ def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
     for img_i, w in enumerate(widths):
         if cur_width + w > width:
             row_start_indices.append(img_i)
-            cur_width = w
+            cur_width = 0
         cur_width += w
     row_start_indices.append(len(widths))
 
@@ -429,7 +471,7 @@ def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
 
 def vertical_collapse(images: list, height_buf:int=0) -> Image:
     """Stack a list of images vertically into one image"""
-    if not images: return None
+    if not images: return Image(height=1, width=0)
     if len(images) == 1: return images[0]
     final_img = images[0].copy()
     for img in images[1:]:
@@ -438,7 +480,7 @@ def vertical_collapse(images: list, height_buf:int=0) -> Image:
 
 def horizontal_collapse(images: list) -> Image:
     """Stack a list of images horizontally into one image"""
-    if not images: return None
+    if not images: return Image(height=1, width=0)
     if len(images) == 1: return images[0]
     final_image = Image(height=images[0].height, width=0)
     for img in images:

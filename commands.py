@@ -9,8 +9,9 @@ def parse_command(line):
     args = []
     kwargs = dict()
     for part in parts[1:]:
-        if part.startswith('--'):
-            k, v = part[2:].split("=", 1)
+        if "=" in part: # part.startswith('--'):
+            part = part.replace("--", "")
+            k, v = part.split("=", 1)
             kwargs[k] = v
         elif part.startswith('-'):
             kwargs[part[1:]] = True
@@ -21,6 +22,10 @@ def parse_command(line):
         if cmd[0:-1].isnumeric() and cmd[-1].isalpha():
           args = [cmd[0:-1]]
           cmd = cmd[-1]
+        if cmd[1:].isnumeric() and cmd[0].isalpha():
+          args = [cmd[1:]]
+          cmd = cmd[0]
+
 
     if cmd not in COMMAND_ACTIONS:
       raise ValueError(f"unrecognized command '{line}'. Please try again.")
@@ -29,26 +34,37 @@ def parse_command(line):
 
 # Augh this should somehow be decoubled from game.py
 COMMAND_ACTIONS = {"halp", "q", "g", "m", "h", "j", "k", 
-                   "l", "gg", "G", "r", "set_random_seed"}
+                   "l", "gg", "G", "r", "n", "d", "set_random_seed", "dev"}
 
 def print_help():
     print(f"""
 ====================================
 Here are some commands you can enter!
 ------------------------------------
-    General format:
-      $ command -option1 -option2 --keyword_argument=
+Command format:
+$ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2 
+
+{colorize('General Commands:',     'green')}
           {colorize('halp',      'red')}: print this string.
-          {colorize('g XY [-k]', 'red')}: go to square XY, selecting the piece on it (alternate option -k: keep existing selection) 
-          {colorize('m XY',      'red')}: Move the selected piece to square XY
           {colorize('r',         'red')}: refresh
           {colorize('q',         'red')}: quit this game.
-          {colorize('h n',       'red')}: move highlighted square left n squares (n defaults to 1)
-          {colorize('j n',       'red')}: move highlighted square down n squares (n defaults to 1)
-          {colorize('k n',       'red')}: move highlighted square up n squares (n defaults to 1)
-          {colorize('l n',       'red')}: move highlighted square right n squares (n defaults to 1)
+
+{colorize('Moving the selection around:',     'green')}
+          {colorize('h [N]',     'red')}: move highlighted square left N squares (N defaults to 1)
+          {colorize('j [N]',     'red')}: move highlighted square down N squares (N defaults to 1)
+          {colorize('k [N]',     'red')}: move highlighted square up N squares (N defaults to 1)
+          {colorize('l [N]',     'red')}: move highlighted square right N squares (N defaults to 1)
           {colorize('gg',        'red')}: highlight top-left square
           {colorize('G',         'red')}: highlight bottom right square
+          {colorize('g XY [-k]', 'red')}: go to square XY, selecting the piece on it (alternate option -k: keep existing selection) 
+
+{colorize('Taking your turn:',     'green')}
+          {colorize('m XY',      'red')}: Move the selected piece to square XY
+          {colorize('n [K] [--s=X] [--s=Y]', 'red')}: Take a nonsense turn.  alternately, take K nonsense turns, withS seconds wait between them, and take probability T.
+
+{colorize('Advanced/Debugging:',     'green')}
+          {colorize('dev',       'red')}: toggle dev mode
+          {colorize('d',         'red')}: draw a card
 """)
 
 

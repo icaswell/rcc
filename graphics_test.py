@@ -1,9 +1,12 @@
+import time
+
 from graphics import Image, vertical_collapse, horizontal_collapse, wrap_collapse
+
 # from graphics_library import img_lib
 # currently failing:
 # test 21dropping a teal_highlight square at bottom_left, width_buf=0, height_buf=0
 
-tests_to_run = {"empty_canvas", "highlighted_empty_canvas", "highlighted_width_1", "highlighted_height_1", "0_width", "from_string", "from_string_highlighted", "drop_in_image_right_top", "drop_in_image_bottom_left", "stacking", "stacking_plus_drop_in_image", "stacking_plus_drop_in_image_diff_layers", "stacking_plus_drop_in_image_diff_layers_inverted", "uncolored_crown_on_colored_pawn", "colored_crown_on_uncolored_pawn", "edge_renders", "more_dropping", "dropping_colors_layers_small", "dropping_colors_layers_medium", "dropping_canvas_resize", "bigger_dropping", "small_place_underneath", "tiny_nested_colors", "medium_nested_colors", "smaller_overlapping_colors", "medium_overlapping_colors", "color_edges", "wrap"}
+tests_to_run = {"empty_canvas", "highlighted_empty_canvas", "highlighted_width_1", "highlighted_height_1", "0_width", "from_string", "from_string_highlighted", "drop_in_image_right_top", "drop_in_image_bottom_left", "stacking", "stacking_plus_drop_in_image", "stacking_plus_drop_in_image_diff_layers", "stacking_plus_drop_in_image_diff_layers_inverted", "uncolored_crown_on_colored_pawn", "colored_crown_on_uncolored_pawn", "edge_renders", "more_dropping", "dropping_colors_layers_small", "dropping_colors_layers_medium", "dropping_canvas_resize", "bigger_dropping", "small_place_underneath", "tiny_nested_colors", "medium_nested_colors", "smaller_overlapping_colors", "medium_overlapping_colors", "color_edges", "wrap", "render_time"}
 
 pawn_w_2p =(
 " △ \n"
@@ -555,3 +558,22 @@ if "wrap" in tests_to_run:
   print(f"Now wrap-collapse everything, with width={width}, height_buf={height_buf}:")
   wrap_collapse(images=images_to_wrap, width=width, height_buf=height_buf).render()
 
+
+
+if "render_time" in tests_to_run:
+  print(f"{SEC}Timing lots of renders")
+  img = Image(from_string="\n".join(['O'*128 for _ in range(64)]))
+  n_trials=50
+
+  st = time.time()
+  for _ in range(n_trials):
+    img.render()
+  blank_canvas_time = time.time() - st
+  
+  img.set_color("green")
+  st = time.time()
+  for _ in range(n_trials):
+    img.render()
+  color_canvas_time = time.time() - st
+  
+  print(f"Took {blank_canvas_time/n_trials}s per colorless canvas,  {color_canvas_time/n_trials}s per colored canvas.")

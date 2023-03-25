@@ -4,12 +4,18 @@ from asset_library import STANDARD_PIECES, OTHER_PIECES
 
 class PieceMoves():
     """This class is essentially a glorified dict + function decorator.
+    There are three ways to initialize this:
+      1. give it all_moves, and it will figure out which are taking or nontaking
+      2. explicitly give it taking and nontaking moves. This is good for cases like PAwns that move and take differently
+      3. initialize empty object with (square is None and piece is None)
 
-    It stores what moves a given Piece can make. The actual logic for dinding the takable moves happens in the piece's get_possible_moves function/
+    It stores what moves a given Piece can make. The actual logic for finding the takable moves happens in the piece's get_possible_moves function/
     """
     def __init__(self, square, piece, all_moves=None, taking_moves=None, nontaking_moves=None):
-        # print(square, piece, all_moves, taking_moves, nontaking_moves)
-        if all_moves is not None:
+        if square is None and piece is None:
+            self.taking = []
+            self.nontaking = []
+        elif all_moves is not None:
             if (taking_moves is not None) or (nontaking_moves is not None):
                 raise ValueError("If all_moves is specified, neither of taking_moves or nontaking_moves can be")
             self.taking    =    [square for square in all_moves if square.takable_occupants(piece)]
@@ -30,20 +36,13 @@ class PieceMoves():
 
 class Piece(): pass
 class Piece():
-    # piece attributes
-    unique_id = ""
-    piece_type = ""
-    team = ""  # white, black, etc.
-    mover = ""  # white, Ibraheem, Ibhraheem, etc
-    alive = True
-    has_moved = False
-    square_this_is_on = None
-    taking_method = "normal"  # TODO should be an enum; oen of "normal", "pushing", "swapping"
 
-    special_stuff = {}  # any special enchantments or attributes
+    # special_stuff = {}  # any special enchantments or attributes
     # e.g. that it has the one ring, or is a successor, or riastrad, guzunder
 
 
+    # TODO wtf why can't this be in init
+    taking_method = "normal"  # TODO should be an enum; oen of "normal", "pushing", "swapping"
     def __init__(self, team, piece_type, name, img:Image=None):
         if img:
             self.img = img
@@ -54,17 +53,26 @@ class Piece():
         self.type = piece_type
         self.team = team
         self.has_moved = False
+        alive = True
+        square_this_is_on = None
+
+    def __repr__(self):
+        return f"{self.name} ({self.team}'s {self.type})"
+    def __str__(self):
+        return self.__repr__()
+
 
     def can_be_taken_by(self, piece: Piece) -> bool:
         """Can self be taken by piece?"""
         return piece.team != self.team
 
-    def relative_tangibility(self, piece: Piece) -> str:
-        """
+    def tangibility_wrt_incomer(self, piece: Piece) -> str:
+        """How tangible is Self to the incoming piece?
         returns one of the enum of ["intangible", "unpassthroughable", "unpassintoable"]
         the default method is the one that works for all standard pieces and some nonstandard pieces.
         """
-        if piece.team == self.team: return "unpassintoable"
+        if not self.can_be_taken_by(piece):
+            return "unpassintoable"
         return "unpassthroughable"
 
     def action_when_vacates(self, square) -> None:
@@ -186,7 +194,7 @@ class King(Piece):
 
 
 
-class Zamboni(Piece):
+class ZamboniPiece(Piece):
     taking_method = "pushing"
     def __init__(self, team, name):
         img = Image(OTHER_PIECES["zamboni"], color="none", name=f"{name}_img")
@@ -197,8 +205,12 @@ class Zamboni(Piece):
         all_moves = self.square_this_is_on.get_squares_from_directions_list(self, directions) 
         return PieceMoves(piece=self, square=self.square_this_is_on, all_moves=all_moves)
 
+    def can_be_taken_by(self, piece: Piece) -> bool:
+        """Zamboni cannot be taken!! haha!"""
+        return False
 
-class Swapper(Piece):
+
+class SwapperPiece(Piece):
     def __init__(self, team, name):
         img = Image(OTHER_PIECES["swapper"], color="none", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="swapper", img=img)

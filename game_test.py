@@ -5,7 +5,18 @@ import time
 
 SEC = "#" + "="*79 + "\n"
 
-tests_to_run = {"move_and_time", "taking", "nonsense_game", "reconstitute_game"}
+tests_to_run = {"render_time", "move_and_time", "taking", "nonsense_game", "reconstitute_game"}
+tests_to_run = {"render_time"}
+
+if "render_time" in tests_to_run:
+  print(f"{SEC}Timing lots of renders")
+  G = Game(STANDARD_CHESS)
+  st = time.time()
+  n_trials=50
+  for _ in range(n_trials):
+    G.render()
+  total_time = time.time() - st
+  print(f"Took {total_time/n_trials}s per render)")
 
 if "move_and_time" in tests_to_run:
   print(f"{SEC}Moving various pieces and timing the whole operation")
@@ -37,14 +48,14 @@ if "move_and_time" in tests_to_run:
   total_time = time.time() - st
   print(f"Took {total_time} seconds ({total_time/12}s per render)")
 
-  print(f"{SEC}Take")
-  G.move_top_piece("c5", "d6")  # w bishop takes black pawn
-  G.render()
-  G.move_top_piece("d6", "e7")  # w bishop moves
-  G.move_top_piece("e8", "e7")  # Queen takes
-  G.move_top_piece("a2", "a3")  # w p moves
-  G.move_top_piece("e7", "a3")  # b queen moves
-  G.render()
+  # print(f"{SEC}Take")
+  # G.move_top_piece("c5", "d6")  # w bishop takes black pawn
+  # G.render()
+  # G.move_top_piece("d6", "e7")  # w bishop moves
+  # G.move_top_piece("e8", "e7")  # Queen takes
+  # G.move_top_piece("a2", "a3")  # w p moves
+  # G.move_top_piece("e7", "a3")  # b queen moves
+  # G.render()
 
 
 if "nonsense_game" in tests_to_run:
