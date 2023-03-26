@@ -185,11 +185,25 @@ class FlippedClassroom(Card):
 #         num_rows = len(game.board.board_grid)
 
 
+class EpiscopiVagantes(Card):
+    text = "Henceforward, Bishops may no longer take or be taken. Instead, what would normally have resulted in taking a Bishop (or being taken by one) now results in swapping places of the two pieces in question."
+    def __init__(self, game):
+        super().__init__(game=game, name="Episcopi Vagantes", is_persistent=True)
+        self.message = "Bahaha! Your bishops can no longer take or be taken; they just swap places with the other piece!!!!!!"
+        for piece in game.board.get_pieces(types=['bishop']):
+            piece.interaction_type = InteractionType.SWAPPING
+   
+    def when_leaves_play(self):
+        for piece in game.board.get_pieces(types=['bishop']):
+            piece.interaction_type = InteractionType.TAKING
+
+
 ALL_CARDS = {
     "Zamboni": ZamboniCard,
     "Landslide": Landslide,
     "BackToTheBasics": BackToTheBasics,
     "FlippedClassroom": FlippedClassroom,
+    "EpiscopiiVagantes": EpiscopiiVagantes,
 }
 
-TEST_DECK = [FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [EpiscopiiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
