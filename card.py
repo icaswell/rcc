@@ -203,7 +203,7 @@ ALL_CARDS = {
     "Landslide": Landslide,
     "BackToTheBasics": BackToTheBasics,
     "FlippedClassroom": FlippedClassroom,
-    "EpiscopiiVagantes": EpiscopiiVagantes,
+    "EpiscopiVagantes": EpiscopiVagantes,
 }
 
-TEST_DECK = [EpiscopiiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
