@@ -18,10 +18,11 @@ class Deck():
 
 
 class Card():
-    # is_active = True
+    # is]_active = True
 
     text = """Pls fill in the text field"""
     def __init__(self, game, name="uninintialized", is_persistent=False):
+
         """This also functions as the card draw action. Namely, the __init__ 
         method is the place to do anything to the game that happens when this card is drawn!
         """
@@ -160,10 +161,27 @@ class Landslide(Card):
         return self.message
         
 
+class FlippedClassroom(Card):
+    text = """Rotate board 180º. Continue playing. (Each player still controls the same pieces.)"""
+    def __init__(self, game):
+        super().__init__(game=game, name="Flipped Classroom", is_persistent=False)
+        self.message = "You haven't switched teams... but the board has flipped!"
+        game.board.board_grid = game.board.board_grid[::-1]
+
+
+# class TheMeek(Card):
+#     text = """TODO"""
+#     def __init__(self, game):
+#         super().__init__(game=game, name="The Meek shall inherit the World", is_persistent=False)
+#         self.message = ""
+#         num_rows = len(game.board.board_grid)
+
+
 ALL_CARDS = {
     "Zamboni": ZamboniCard,
     "Landslide": Landslide,
-    "BackToTheBasics": BackToTheBasics
+    "BackToTheBasics": BackToTheBasics,
+    "FlippedClassroom": FlippedClassroom,
 }
 
-TEST_DECK = [Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

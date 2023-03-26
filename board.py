@@ -114,7 +114,7 @@ class Square():
 
 
     def get_squares_in_ray(self, direction: str, moving_piece: Piece, only_nontaking:str=False) -> list:
-        """E.g. get all the pieces that a bishop could reach in one direction.
+        """E.g. get all the squares that a bishop could reach in one direction.
         Include the last square, aka the piece that will be taken.
 
         AHAH note: "only_nontaking" has some pathological edge cases. Namely, it means that a piece can't landslide into a cat bus or something.
