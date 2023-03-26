@@ -590,3 +590,4 @@ class Board():
         square = self.square_map[square_name]
         square.remove_occupant(piece_name)
 # TODO ensure when placing a piece that it can only be in one place?
+
