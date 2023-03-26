@@ -5,7 +5,6 @@ from typing import List
 
 from constants import *
 
-
 class Square(): pass  # forward declatation for typecheck lol
 class Square():
     # one square of the board
