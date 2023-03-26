@@ -396,10 +396,12 @@ class Board():
         return self.move_piece(self.get_pieces_on_square(start_square)[0], end_square)
 
     def move_piece(self, piece:Piece, end_square:Square) -> list:
-        if piece.taking_method == "normal":
+        if piece.interaction_type == InteractionType.TAKING: 
             return self.move_piece_proper(piece, end_square)
-        elif piece.taking_method == "pushing":
+        elif piece.interaction_type == InteractionType.PUSHING:
             return self.push_from_piece(piece, end_square)
+        elif piece.interaction_type == InteractionType.SWAPPING:
+            return self.swap_pieces(piece, end_square)  
         else:
             assert False
 
@@ -471,6 +473,13 @@ class Board():
         taken_pieces = self.push(landing_square, direction)
         self.move_piece_proper(piece, landing_square)
         return taken_pieces
+
+    def swap_pieces(self, piece: Piece, landing_square: Square) -> List[Piece]:
+        for occ in landing_square.occupants:
+          piece.square_this_is_on.occupants.append(occ)
+          occ.square_this_is_on = piece.square_this_is_on
+        landing_square.occupants = []
+        return self.move_piece_proper(piece, landing_square)        
 
     def push(self, first_pushed_square, direction) -> List[Piece]:
         """

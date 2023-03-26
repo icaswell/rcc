@@ -283,7 +283,7 @@ class Game():
       If enforce_whose_turn_it_is, this raises an error if aomeone tries to move another's piece.
       Autonomous pieces will need to avoid this.
       """
-      if not DEV_MODE:
+      if DEV_MODE:
           enforce_whose_turn_it_is = False
       if enforce_whose_turn_it_is and piece.team != self.whose_turn:
         raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {piece.team}!") 

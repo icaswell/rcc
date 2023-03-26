@@ -1,8 +1,16 @@
-
+import enum
 
 # an "enum"
 MODES_OF_MOVEMENT = ["normal", "jumping"]
 
+class InteractionType(enum.Enum):
+    # This piece takes whatever it lands on.
+    TAKING = 1
+    # This piece will push the occupant in the direction
+    # of the movement, and all other pieces in the line of movement.
+    PUSHING = 2
+    # This piece swaps with whatever it lands on.
+    SWAPPING = 3
 
 COLOR_SCHEME = {
   # primarily used in game.py:

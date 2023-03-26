@@ -1,6 +1,8 @@
 from graphics import Image
 from name_registry import register_name
 from asset_library import STANDARD_PIECES, OTHER_PIECES
+from constants import *
+
 
 class Piece(): pass
 class PieceMoves():
@@ -115,10 +117,7 @@ class Piece():
     # e.g. that it has the one ring, or is a successor, or riastrad, guzunder
 
 
-    # TODO wtf why can't this be in init
-    taking_method = "normal"  # TODO should be an enum; oen of "normal", "pushing", "swapping"
-    moves_as = "immobile"
-    def __init__(self, team, piece_type, name, img:Image=None):
+    def __init__(self, team, piece_type, name, moves_as = None, interaction_type: InteractionType = InteractionType.TAKING, img:Image=None):
         if img:
             self.img = img
         else:
@@ -126,11 +125,11 @@ class Piece():
         register_name(name)
         self.name = name
         self.type = piece_type
-        self.moves_as = piece_type
+        self.moves_as = moves_as if moves_as else piece_type
+        self.interaction_type = interaction_type 
         self.team = team
         self.has_moved = False
-        alive = True
-        square_this_is_on = None
+        self.square_this_is_on = None
 
     def __repr__(self):
         return f"{self.name} ({self.team}'s {self.type})"
@@ -210,11 +209,9 @@ class King(Piece):
 
 
 class ZamboniPiece(Piece):
-    taking_method = "pushing"
     def __init__(self, team, name):
         img = Image(OTHER_PIECES["zamboni"], color="none", name=f"{name}_img")
-        super().__init__(team=team, name=name, piece_type="zamboni", img=img)
-        self.moves_as = "king"
+        super().__init__(team=team, name=name, piece_type="zamboni", moves_as="king", interaction_type=InteractionType.PUSHING, img=img)
 
     def can_be_taken_by(self, piece: Piece) -> bool:
         """Zamboni cannot be taken!! haha!"""
@@ -224,5 +221,4 @@ class ZamboniPiece(Piece):
 class SwapperPiece(Piece):
     def __init__(self, team, name):
         img = Image(OTHER_PIECES["swapper"], color="none", name=f"{name}_img")
-        super().__init__(team=team, name=name, piece_type="swapper", img=img)
-        self.moves_as = "king"
+        super().__init__(team=team, name=name, piece_type="swapper", moves_as="king", interaction_type=InteractionType.SWAPPING, img=img)
