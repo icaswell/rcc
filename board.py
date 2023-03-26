@@ -6,17 +6,6 @@ from typing import List
 from constants import *
 
 
-ROW_OFFSET_TO_NAME = {
-    (-1, 0): "n",
-    (-1, 1): "ne",
-    (0,  1): "e",
-    (1,  1): "se",
-    (1,  0): "s",
-    (1, -1): "sw",
-    (0, -1): "w",
-    (-1, -1): "nw",
-}
-
 class Square(): pass  # forward declatation for typecheck lol
 class Square():
     # one square of the board
@@ -237,8 +226,11 @@ class Board():
         self.square_width = game_config["square_width"] 
         self.board_height = game_config["board_height"]
         self.board_width = game_config["board_width"] 
+        # This all may seem a bit extra for a simple indexing...but remember that the board can be rotated around!
         self.col_names_to_idx = {a:i for i, a in enumerate('abcdefgh')}
         self.idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
+        self.row_names_to_idx = {i+1:i for i in range(self.board_height)}
+        self.idx_to_row_names = {i:a for a, i in self.row_names_to_idx.items()}
 
         # Initialize all the Square objects
         for row_i in range(game_config["board_height"]):
@@ -249,7 +241,7 @@ class Board():
                 else:
                   sq_color = COLOR_SCHEME["WHITE_SQUARE_COLOR"]
                 # sq_color = "none"
-                alpha_name = f"{self.idx_to_col_names[col_j]}{row_i + 1}"
+                alpha_name = f"{self.idx_to_col_names[col_j]}{self.idx_to_row_names[row_i]}"
                 square = Square(width=self.square_width, height=self.square_height, name=alpha_name, color=sq_color)
                 self.board_grid[row_i].append(square)
                 self.square_map[square.name] = square
@@ -304,6 +296,17 @@ class Board():
 
     def add_square_neighbors(self, row_i:int, col_j:int) -> None:
         """To be used during board setup"""
+
+        row_offset_to_name = {
+            (-1, 0): "n",
+            (-1, 1): "ne",
+            (0,  1): "e",
+            (1,  1): "se",
+            (1,  0): "s",
+            (1, -1): "sw",
+            (0, -1): "w",
+            (-1, -1): "nw",
+        }
         square = self.board_grid[row_i][col_j]
         for row_offset in [-1, 0, 1]:
           for col_offset in [-1, 0, 1]: 
@@ -312,10 +315,9 @@ class Board():
               adjacent_col = col_j + col_offset
               if not self._coordinate_is_on_grid(row_i=adjacent_row, col_j=adjacent_col):
                   continue
-              direction_name = ROW_OFFSET_TO_NAME[(row_offset, col_offset)]
+              direction_name = row_offset_to_name[(row_offset, col_offset)]
               # TODO did I correctly add a pointer here? or is there now a duplicate of this square here?
               square.neighbors[direction_name] = self.board_grid[adjacent_row][adjacent_col]
-
 
 
     def get_pieces_on_square(self, square:Square) -> list:
@@ -530,7 +532,7 @@ class Board():
         if not row.isnumeric():
             raise ValueError(f"Got row ID '{row}' and col ID '{col}', but row ID is not numeric.")
         col_idx = self.col_names_to_idx[col.lower()]
-        row_idx = int(row) - 1
+        row_idx = self.row_names_to_idx[int(row)]
         return self.board_grid[row_idx][col_idx]
 
 

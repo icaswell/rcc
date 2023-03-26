@@ -1,16 +1,16 @@
-import random
 from collections import defaultdict
-import traceback
 from time import sleep
-import sys, os
 from typing import List, Set, Dict, Union
+import random
+import sys, os
+import traceback
 
 from board import Board, Square
-from piece import Piece, PieceMoves
-from graphics import Image, wrap_collapse, vertical_collapse, colorize
-import commands
+from card import ALL_CARDS
 from constants import *
-
+from graphics import Image, wrap_collapse, vertical_collapse, colorize
+from piece import Piece, PieceMoves
+import commands
 
 class Player():
     color = "" 
@@ -87,7 +87,7 @@ class Game():
 
     def execute_commands(self, cmd_history: List[str], display:bool=False) -> None:
         for cmd in cmd_history:
-           self.take_action_from_command(cmd)
+           self.take_action_from_command(cmd, display=display)
            if display:
                sleep(0.3)
                self.render()
@@ -108,6 +108,9 @@ class Game():
               movable_pieces_to_moves.append((piece, moves))
         if not movable_pieces_to_moves:
             raise ValueError("No pieces can be moved!")
+        if DEV_MODE:
+            print(colorize("Selecting random move.", "green"))
+            print(colorize(f"It is {self.whose_turn}'s turn. Choosing from amongst these pieces: {movable_pieces_to_moves}", "green"))
 
         piece, moves = random.choice(movable_pieces_to_moves)
         move_to_id = {move:i for i, move in moves.id_to_move.items()}
@@ -121,22 +124,25 @@ class Game():
         move = random.choice(moves.nontaking)
         return piece, move, move_to_id[move]
 
-    def take_nonsense_turn(self, n_secs_wait, take_prob):
+    def take_nonsense_turn(self, n_secs_wait, take_prob, display=True):
        moving_piece, end_square, move_i = self.select_random_move(take_prob)
+       if DEV_MODE:
+           print(colorize(f">>> Selected {moving_piece} to move to {end_square}.", "green"))
        self._cur_available_piece_moves = moving_piece.get_possible_moves()
-
       
        command = f"g {moving_piece.square_this_is_on.name}"  # hack alert! this assumes that the name of the square is an alphanumeric format (or select doesn't work from name)
        self.take_action_from_command(command)
 
-       self.render()
-       sleep(n_secs_wait)
+       if display:
+         self.render()
+         sleep(n_secs_wait)
  
        command = f"m {move_i}"
        self.take_action_from_command(command)
 
-       self.render()
-       sleep(n_secs_wait)
+       if display:
+         self.render()
+         sleep(n_secs_wait)
 
 
     def turn_end_actions(self):
@@ -247,6 +253,10 @@ class Game():
       printstring += f"\n\033[1A"  # TODO should this be in the printstring??
       printstring += f"\033[33C"
       print(printstring, end="")
+      if DEV_MODE:
+          print()
+          for player in self.human_players:
+              print(colorize(f">>> Living pieces for player {player}: {self.living_pieces[player]}", "green"))
 
     def command_prompt(self):
       prompt_str = "enter command ('halp' for help): "
@@ -278,7 +288,7 @@ class Game():
       if enforce_whose_turn_it_is and piece.team != self.whose_turn:
         raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {piece.team}!") 
       if DEV_MODE:
-          print(f"DEV: moving {piece} from {piece.square_this_is_on} to {end_square.name}")
+          print(colorize(f">>> moving {piece} from {piece.square_this_is_on} to {end_square.name}", "green"))
       dead_pieces = self.board.move_piece(piece, end_square)
       for piece in dead_pieces:
           self.mark_piece_as_dead_and_remove_from_board(piece)
@@ -331,7 +341,7 @@ class Game():
         """
         square = self.board.square_from_a1_coordinates(square_name)
         if DEV_MODE:
-            print(f"DEV: Selecting {square}")
+            print(colorize(f">>> Selecting {square}", "green"))
         self.update_selected_square(square)
         occupants = square.occupants
         if not occupants:
@@ -368,6 +378,20 @@ class Game():
       for piece in dead_pieces:
           self.dead_pieces[piece.team].append(piece)
 
+    def draw_specific_card(self, card_name: str) -> None:
+        """Draw a specific card by name. This is mainly a debug/dev method, because otherwise why
+        would you choose the card?
+        """
+        card_fn = ALL_CARDS[card_name]
+        card = card_fn(self)
+        self.take_action_from_command(input_cmd = f"# drew specific card {card}")
+        if card.is_persistent:
+            self.active_cards.append(card)
+        card_message = card.get_message()
+        if card_message:
+          self.messages_this_turn.append(card_message)
+
+
     def draw_card(self) -> None:
         card_fn = self.deck.draw_card()
         if card_fn is None:
@@ -382,7 +406,15 @@ class Game():
           self.messages_this_turn.append(card_message)
 
 
-    def take_action_from_command(self, input_cmd:str) -> Union[str, None]:
+    def take_action_from_command(self, input_cmd:str, display:str=False) -> Union[str, None]:
+       """
+       Args:
+         input_cmd: a string like "2j" for the command. If it starts with '#', it is
+                    treated as a comment and ignored
+         display: whether to render the board. NOTE: not all commands will rander anyways.
+                  But if you don't pass in display=True, nothing will render.
+
+       """
        self.command_history.append(input_cmd)
        if input_cmd.startswith("#"):
            return None  # this was a comment
@@ -420,12 +452,15 @@ class Game():
            n_secs_wait = 0.0 if "s" not in kwargs else float(kwargs["s"])
            take_prob =   0.5 if "t" not in kwargs else float(kwargs["t"])
            for _ in range(n_nonsense_turns):
-             self.take_nonsense_turn(n_secs_wait=n_secs_wait, take_prob=take_prob)
+             self.take_nonsense_turn(n_secs_wait=n_secs_wait, take_prob=take_prob, display=display)
            # end_turn = True
            # HAHAHA this option actually means that this very method (take_action_from_command)
            # will be called twice! because of this we don't end the turn at the higher level in the stack.
        elif cmd == "d":
            self.draw_card()
+       elif cmd == "ds":
+           assert len(args) == 1
+           self.draw_specific_card(args[0])
        elif cmd == "dev":
            global DEV_MODE
            if DEV_MODE:

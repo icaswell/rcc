@@ -167,6 +167,14 @@ class FlippedClassroom(Card):
         super().__init__(game=game, name="Flipped Classroom", is_persistent=False)
         self.message = "You haven't switched teams... but the board has flipped!"
         game.board.board_grid = game.board.board_grid[::-1]
+        new_row_names_to_idx = game.board.row_names_to_idx.copy()
+        n_rows = len(game.board.row_names_to_idx)  # likely: 8
+        for row_name, idx in game.board.row_names_to_idx.items():
+            # row name is what humans call it (1-indexed), whereas indices are 0-indexed.
+            # row_name ranges from e.g. 1 to 8
+            # these items are e.g. "5: 4"
+            new_row_names_to_idx[n_rows - row_name + 1] = idx
+        game.board.row_names_to_idx = new_row_names_to_idx
 
 
 # class TheMeek(Card):

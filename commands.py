@@ -34,7 +34,8 @@ def parse_command(line):
 
 # Augh this should somehow be decoubled from game.py
 COMMAND_ACTIONS = {"halp", "q", "g", "m", "h", "j", "k", 
-                   "l", "gg", "G", "r", "n", "d", "set_random_seed", "dev"}
+                   "l", "gg", "G", "r", "n", "d",
+                   "ds", "set_random_seed", "dev"}
 
 def print_help():
     print(f"""
