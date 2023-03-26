@@ -36,7 +36,7 @@ class Square():
             occ_string = ""
         return self.name + occ_string
     def __str__(self):
-        return self.__repr__()
+        return self.__repr__()  # meow
 
     def update_neighbors(self, neighbors: list) -> None:
         """NOTE this never removes neighbors. May need to have an extra option for some cards.
