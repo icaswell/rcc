@@ -183,13 +183,16 @@ class Knight(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="knight")
 
+
 class Camel(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="camel")
 
+
 class Bishop(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="bishop")
+
 
 class Rook(Piece):
     def __init__(self, team, name):
@@ -204,8 +207,6 @@ class Queen(Piece):
 class King(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="king")
-
-
 
 
 class ZamboniPiece(Piece):
