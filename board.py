@@ -395,12 +395,12 @@ class Board():
         return self.move_piece(self.get_pieces_on_square(start_square)[0], end_square)
 
     def move_piece(self, piece:Piece, end_square:Square) -> list:
-        if piece.interaction_type == InteractionType.TAKING: 
+        if piece.interaction_type == InteractionType.SWAPPING or any([occ.interaction_type == InteractionType.SWAPPING for occ in end_square.occupants]):
+            return self.swap_pieces(piece, end_square)  
+        elif piece.interaction_type == InteractionType.TAKING: 
             return self.move_piece_proper(piece, end_square)
         elif piece.interaction_type == InteractionType.PUSHING:
             return self.push_from_piece(piece, end_square)
-        elif piece.interaction_type == InteractionType.SWAPPING:
-            return self.swap_pieces(piece, end_square)  
         else:
             assert False
 

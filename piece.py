@@ -223,3 +223,15 @@ class SwapperPiece(Piece):
     def __init__(self, team, name):
         img = Image(OTHER_PIECES["swapper"], color="none", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="swapper", moves_as="king", interaction_type=InteractionType.SWAPPING, img=img)
+
+
+class CoyotePiece(Piece):
+    text = """Place Coyote on any square in the board.  Roll to determine whether Coyote moves as a Knight, a Bishop, a Rook, or a Queen. Coyote moves autonomously during your upkeep. Coyote cannot take or be taken.  When either of these events would occur, instead swap Coyote with the relevant piece.
+
+Each move Coyote makes must be as far as possible--for instance, if Coyote moves as a Rook, each turn Coyote chooses between the options Left, Right, Forward, Back and No Move, and goes as far in that direction as possible - either hitting an edge or swapping places with a piece.
+
+"""
+    def __init__(self, team, name):
+        moves_as = random.choice("knight bishop rook queen".split())
+        img = Image(OTHER_PIECES["coyote"], color="none", name=f"{name}_img")
+        super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.PUSHING, img=img)
