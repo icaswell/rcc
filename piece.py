@@ -121,13 +121,14 @@ class Piece():
         if img:
             self.img = img
         else:
-            self.img = Image(STANDARD_PIECES[piece_type][team], color="none", name=f"{name}_img")
+            self.img = Image(STANDARD_PIECES[piece_type][team], color="transparent", name=f"{name}_img")
         register_name(name)
         self.name = name
         self.type = piece_type
         self.moves_as = moves_as if moves_as else piece_type
         self.interaction_type = interaction_type 
         self.team = team
+        self.orientation = "s" if team == "White" else "n"
         self.has_moved = False
         self.square_this_is_on = None
 
@@ -211,7 +212,7 @@ class King(Piece):
 
 class ZamboniPiece(Piece):
     def __init__(self, team, name):
-        img = Image(OTHER_PIECES["zamboni"], color="none", name=f"{name}_img")
+        img = Image(OTHER_PIECES["zamboni"], color="transparent", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="zamboni", moves_as="king", interaction_type=InteractionType.PUSHING, img=img)
 
     def can_be_taken_by(self, piece: Piece) -> bool:
@@ -221,7 +222,7 @@ class ZamboniPiece(Piece):
 
 class SwapperPiece(Piece):
     def __init__(self, team, name):
-        img = Image(OTHER_PIECES["swapper"], color="none", name=f"{name}_img")
+        img = Image(OTHER_PIECES["swapper"], color="transparent", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="swapper", moves_as="king", interaction_type=InteractionType.SWAPPING, img=img)
 
 
@@ -233,5 +234,5 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
 """
     def __init__(self, team, name):
         moves_as = random.choice("knight bishop rook queen".split())
-        img = Image(OTHER_PIECES["coyote"], color="none", name=f"{name}_img")
+        img = Image(OTHER_PIECES["coyote"], color="transparent", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.PUSHING, img=img)

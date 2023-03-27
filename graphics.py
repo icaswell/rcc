@@ -42,11 +42,11 @@ DEBUG_COLORS_TO_NAMES[COLOR_END] = "END"
 DEBUG_COLORS_TO_NAMES[""] = ""
 
 def get_color_tags(color: str):
-  if color == "none": return ('', '')
+  if color == "transparent": return ('', '')
   return get_color_open_tag(color), COLOR_END
 
 def get_color_open_tag(color: str):
-  if color == "none": return ''
+  if color == "transparent": return ''
   if color not in COLORS:
       raise ValueError(f"Unknown color '{color}'")
   color_i = COLORS[color]
@@ -60,7 +60,7 @@ def colorize(s: str, color: str) -> str:
 
 class Pixel(): pass  # forward declaration
 class Pixel():
-    def __init__(self, val:str=" ", color:str="", json_pxl=None):
+    def __init__(self, val:str=" ", color:str="transparent", json_pxl=None):
       if json_pxl:
         self.val = json_pxl["val"]
         self.color_open_tag = json_pxl["color_open_tag"]
@@ -89,10 +89,11 @@ class Pixel():
         """What happens if there are multiple open tags?
         We just ignore the earlier ones. but this is bad news in general.
         """
-        if color:
+        if color is not None:
           self.color_open_tag = get_color_open_tag(color)
         else:
-          self.color_open_tag = ""
+           return
+           # self.color_open_tag = ""
 
     def copy(self) -> Pixel:
       ret = Pixel()
@@ -149,7 +150,7 @@ class Pixel():
 # BAHAHA this is a forward-declaration so that I can use type annotations!
 class Image(): pass
 class Image():
-    def __init__(self, from_string=None, height=None, width=None, name=None, color="none"):
+    def __init__(self, from_string=None, height=None, width=None, name=None, color="transparent"):
         assert (from_string is not None) != (height or width)
 
         if width and not height:
@@ -197,18 +198,23 @@ class Image():
 
     def set_pixel(self, row_i:int, col_j:int, pixel_val:str, layer_i:int=-1, color:str=None) -> None:
         self.layers[layer_i][row_i][col_j].set_value(pixel_val)
-        if color:
-            self.layers[layer_i][row_i][col_j].set_color(color)
+        self.layers[layer_i][row_i][col_j].set_color(color)
 
 
     def print_in_string(self, s:str, location:Union[str,Tuple[int, int]]="lower_right", color:str=None) -> None:
         """Make a new transparent layer and print a string on it.
+
+        Args:
+          location:
+          color:
+          color:
+          border_width: don't go the the very edge of the image, go within this many pixels of it.
         """
         n_rows_this_message_will_span = len(s) // self.width
         n_cols_in_last_row = len(s) % self.width
         if location == "lower_right":
           row_offset = (self.height - 1) - n_rows_this_message_will_span 
-          col_offset = (self.width) - n_cols_in_last_row
+          col_offset = (self.width) - n_cols_in_last_row 
         elif location == "upper_left":
           row_offset = 0
           col_offset = 0
@@ -220,10 +226,24 @@ class Image():
 
         # self.add_transparency()
 
-        for i, c in enumerate(s):
-            row_i =  row_offset + (i + col_offset)//self.width
-            col_j = (i + col_offset)%self.width
-            self.set_pixel(row_i, col_j, c, color=color)
+        if col_offset > self.width:
+            raise ValueError(f"Ups: col_offset={col_offset} but self.width={self.width}")
+        col_j = col_offset
+        row_i = row_offset
+        for str_idx, c in enumerate(s):
+            if c == "\n":
+                col_j = 0
+                row_i += 1
+                continue
+            else:
+                col_j += 1
+                if col_j >= self.width:
+                  row_i += 1
+                  col_j = 0
+
+            if row_i >= self.height or col_j >= self.width:
+                break
+            self.set_pixel(row_i=row_i, col_j=col_j, pixel_val=c, color=color)
 
 
     def expand_canvas(self, new_height: int, new_width: int) -> None:
@@ -438,7 +458,7 @@ class Image():
 
 
 
-def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
+def wrap_collapse(images: list, width: int, width_buf:int = 0, height_buf:int = 0) -> Image:
     """wrap a list of images into one image:
     Input: [a, b, c, d, e, f, g]
     Output image:
@@ -455,17 +475,17 @@ def wrap_collapse(images: list, width: int, height_buf:int = 0) -> Image:
     cur_width = 0
     row_start_indices = [0] # the NON-INCLUSIVE upper bounds of each row
     for img_i, w in enumerate(widths):
-        if cur_width + w > width:
+        if cur_width + w> width:
             row_start_indices.append(img_i)
             cur_width = 0
-        cur_width += w
+        cur_width += w + width_buf
     row_start_indices.append(len(widths))
 
     img_rows = []
     for i in range(len(row_start_indices) - 1):
         lb = row_start_indices[i]
         ub = row_start_indices[i + 1]
-        img_rows.append(horizontal_collapse(images[lb:ub]))
+        img_rows.append(horizontal_collapse(images[lb:ub], width_buf=width_buf))
 
     return vertical_collapse(img_rows, height_buf=height_buf)
 
@@ -474,17 +494,22 @@ def vertical_collapse(images: list, height_buf:int=0) -> Image:
     if not images: return Image(height=1, width=0)
     if len(images) == 1: return images[0]
     final_img = images[0].copy()
+    # TODO: is more efficient to make large canvas first
     for img in images[1:]:
         final_img.drop_in_image(img, "bottom_left", height_buf=height_buf)
     return final_img
 
-def horizontal_collapse(images: list) -> Image:
+def horizontal_collapse(images: list, width_buf:int=0) -> Image:
     """Stack a list of images horizontally into one image"""
     if not images: return Image(height=1, width=0)
     if len(images) == 1: return images[0]
-    final_image = Image(height=images[0].height, width=0)
-    for img in images:
-        final_image.drop_in_image(img, "right_top")
+    final_width = sum(img.width for img in images) + width_buf*(len(images) - 1)
+    final_image = Image(height=images[0].height, width=final_width)
+    drop_col = 0
+    for i, img in enumerate(images):
+        final_image.drop_in_image(img, location=(0, drop_col))
+        drop_col += img.width + width_buf
+        iur_width_buf = width_buf if i else 0
     return final_image
 
 

@@ -8,10 +8,9 @@ from constants import *
 class Square(): pass  # forward declatation for typecheck lol
 class Square():
     # one square of the board
-    highlight_color = "none"
 
     def __init__(self, height:int, width:int, color:str, name:str) -> None:
-        self.base_img = Image(height=height, width=width, color="none", name=name + "_img")
+        self.base_img = Image(height=height, width=width, color="transparent", name=name + "_img")
         self.neighbors = {}  # a dict of direction name to Square object, e.g. {"nw": square_xxx}
         self.occupants = []  # list of Pieces
         self.color = color
@@ -239,7 +238,6 @@ class Board():
                   sq_color = COLOR_SCHEME["BLACK_SQUARE_COLOR"]
                 else:
                   sq_color = COLOR_SCHEME["WHITE_SQUARE_COLOR"]
-                # sq_color = "none"
                 alpha_name = f"{self.idx_to_col_names[col_j]}{self.idx_to_row_names[row_i]}"
                 square = Square(width=self.square_width, height=self.square_height, name=alpha_name, color=sq_color)
                 self.board_grid[row_i].append(square)

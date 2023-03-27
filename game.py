@@ -58,7 +58,6 @@ class Game():
       self.deck = game_config["deck"]()
       self.active_cards = []
       # self.past_cards = []
-      self.card_messages_this_turn = defaultdict(list)
 
       self.turn_number = 0
       self.whose_turn = "White"
@@ -108,9 +107,8 @@ class Game():
               movable_pieces_to_moves.append((piece, moves))
         if not movable_pieces_to_moves:
             raise ValueError("No pieces can be moved!")
-        if DEV_MODE:
-            print(colorize("Selecting random move.", "green"))
-            print(colorize(f"It is {self.whose_turn}'s turn. Choosing from amongst these pieces: {movable_pieces_to_moves}", "green"))
+        DEV_PRINT("Selecting random move.")
+        DEV_PRINT(f"It is {self.whose_turn}'s turn. Choosing from amongst these pieces: {movable_pieces_to_moves}")
 
         piece, moves = random.choice(movable_pieces_to_moves)
         move_to_id = {move:i for i, move in moves.id_to_move.items()}
@@ -126,8 +124,7 @@ class Game():
 
     def take_nonsense_turn(self, n_secs_wait, take_prob, display=True):
        moving_piece, end_square, move_i = self.select_random_move(take_prob)
-       if DEV_MODE:
-           print(colorize(f">>> Selected {moving_piece} to move to {end_square}.", "green"))
+       DEV_PRINT(f"Selected {moving_piece} to move to {end_square}.")
        self._cur_available_piece_moves = moving_piece.get_possible_moves()
       
        command = f"g {moving_piece.square_this_is_on.name}"  # hack alert! this assumes that the name of the square is an alphanumeric format (or select doesn't work from name)
@@ -170,7 +167,7 @@ class Game():
             return Image(height=1, width=0)
         board_width = self.board.board_width + self.board.square_width
         card_display_width = board_width + self.graveyard_width
-        return wrap_collapse([card.img for card in self.active_cards], width=card_display_width)
+        return wrap_collapse([card.img for card in self.active_cards], width=card_display_width, width_buf=1)
 
 
     def get_graveyard_img(self):
@@ -253,10 +250,9 @@ class Game():
       printstring += f"\n\033[1A"  # TODO should this be in the printstring??
       printstring += f"\033[33C"
       print(printstring, end="")
-      if DEV_MODE:
-          print()
-          for player in self.human_players:
-              print(colorize(f">>> Living pieces for player {player}: {self.living_pieces[player]}", "green"))
+      if DEV_MODE: print()
+      for player in self.human_players:
+          DEV_PRINT(f"Living pieces for player {player}: {self.living_pieces[player]}")
 
     def command_prompt(self):
       prompt_str = "enter command ('halp' for help): "
@@ -268,6 +264,7 @@ class Game():
     def perform_upkeep(self):
         for card in self.active_cards:
             card.upkeep_action(self)
+            self.messages_this_turn.append(card.get_message())
 
     def mark_piece_as_dead_and_remove_from_board(self, piece):
        self.dead_pieces[piece.team].append(piece)
@@ -285,10 +282,9 @@ class Game():
       """
       if DEV_MODE:
           enforce_whose_turn_it_is = False
+      DEV_PRINT(f">>> moving {piece} from {piece.square_this_is_on} to {end_square.name}, {self.whose_turn}'s turn")
       if enforce_whose_turn_it_is and piece.team != self.whose_turn:
         raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {piece.team}!") 
-      if DEV_MODE:
-          print(colorize(f">>> moving {piece} from {piece.square_this_is_on} to {end_square.name}", "green"))
       dead_pieces = self.board.move_piece(piece, end_square)
       for piece in dead_pieces:
           self.mark_piece_as_dead_and_remove_from_board(piece)
@@ -340,8 +336,7 @@ class Game():
         The reason this method is called "interactive" is that if you select and there are multiple pieces on the square, it will prompt you to choose.
         """
         square = self.board.square_from_a1_coordinates(square_name)
-        if DEV_MODE:
-            print(colorize(f">>> Selecting {square}", "green"))
+        DEV_PRINT(f">>> Selecting {square}")
         self.update_selected_square(square)
         occupants = square.occupants
         if not occupants:
@@ -397,7 +392,9 @@ class Game():
         if card_fn is None:
           self.messages_this_turn.append("No more cards in the deck!")
           return
+
         card = card_fn(self)
+        DEV_PRINT(f"Drew {card.name}")
         self.take_action_from_command(input_cmd = f"# drew card {card}")
         if card.is_persistent:
             self.active_cards.append(card)
@@ -498,6 +495,8 @@ class Game():
             print(f"{self.command_prompt()}", end="")
             if DEV_MODE:
               print(traceback.format_exc())
+              print(colorize("Comand history: ", "red"), end="")
+              print(self.command_history)
             # print(exc_tb)
 
 

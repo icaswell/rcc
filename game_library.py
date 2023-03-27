@@ -8,12 +8,18 @@ from piece import *
 from card import Deck, TEST_DECK
 
 def validate_config(config):
-    required_keys = ["board_height", "board_width", "card_draw_probability", "square_height", "square_width", "players", "deck"]
+    required_keys = ["board_height", "initial_positions", "board_width", "card_draw_probability", "square_height", "square_width", "players", "deck", "players_orientations"]
     for key in required_keys:
         if key not in config:
             raise ValueError(f"config missing {key}")
+    extra_keys =  set(config.keys()) - set(required_keys)
+    if extra_keys:
+        raise ValueError(f"extra keys: {extra_keys}")
     for k in config["players"]:
         assert(isinstance(k, str))
+    assert len(config["players"]) == len(config["players_orientations"])
+    for p, o in config["players_orientations"].items():
+        assert o in ["n", "e", "s", "w"]
     assert callable(config["card_draw_probability"])
     seen_positions = set()
     for (row, col), piece_generator in config["initial_positions"]:
@@ -29,6 +35,7 @@ def validate_config(config):
 # also with the players key
 STANDARD_CHESS = {
         "players": ["White", "Black"],
+        "players_orientations": ["s", "n"],
         "board_height": 8,
         "board_width": 8,
         "square_height": 8,
@@ -73,6 +80,7 @@ STANDARD_CHESS = {
 
 TEST_GAME_CONFIG = {
         "players": ["White", "Black"],
+        "players_orientations": ["s", "n"],
         "board_height": 8,
         "board_width": 8,
         "square_height": 8,

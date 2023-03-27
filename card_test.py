@@ -9,16 +9,14 @@ SEC = "#" + "="*79 + "\n"
 
 tests_to_run = {"unit_tests", "landslide+flipped"}
 
-def test_cards(card_names:List[str]) -> None:
+def test_cards(card_names:List[str], n_moves=12) -> None:
   reset_name_registry()
   G = Game(TEST_GAME_CONFIG)
   G.render()
   commands = [f"ds {card_name}" for card_name in card_names]
   G.execute_commands(commands, display=True)
-  # move the cursor around
-  G.execute_commands("j l k h 4j 6k 11h".split(), display=False)
-  # play a nonsense game for 12 moves
-  G.execute_commands(["n 12"], display=False)
+  # play a nonsense game
+  G.execute_commands([f"n {n_moves}"], display=False)
   G.render()
 
 #===============================================================================
@@ -27,6 +25,16 @@ if "unit_tests" in tests_to_run:
   for card_name in ALL_CARDS:
     print(f"{SEC}Test {card_name}")
     test_cards([card_name])
+
+#===============================================================================
+# Bunit tests
+if "unit_tests" in tests_to_run:
+  for card_name_a in ALL_CARDS:
+    for card_name_b in ALL_CARDS:
+      if card_name_a == card_name_b: continue  # rip this is bc the name registry
+      print(f"{SEC}Test {card_name_a} + {card_name_b}")
+      test_cards([card_name_a, card_name_b], n_moves=6)
+
 
 
 #===============================================================================

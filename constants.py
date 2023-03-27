@@ -1,4 +1,5 @@
 import enum
+import graphics
 
 # an "enum"
 MODES_OF_MOVEMENT = ["normal", "jumping"]
@@ -35,5 +36,8 @@ BREAK = "break"
 # CENTER_FOUR_SQUARE_NAMES = "d4 d5 e4 e5".split()
 
 DEV_MODE = []
+def DEV_PRINT(s):
+  if DEV_MODE:
+    print(graphics.colorize(">>> ", "yellow") + graphics.colorize(s, "green"))
 
 

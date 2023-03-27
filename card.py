@@ -1,6 +1,7 @@
 import random
 from graphics import Image
 import piece
+from piece import ALL_MOVING_STYLES
 from constants import *
 
 class Deck():
@@ -34,6 +35,8 @@ class Card():
         self.img = Image(width=32, height=24)
         self.img.set_color("teal_highlight")
         self.img.print_in_string(self.name.replace("Card", ""), (3, 4))
+        self.img.print_in_string(self.text, (5, 4))
+
 
     def __str__(self):
         return self.name
@@ -49,7 +52,7 @@ class Card():
         # e.g. for A King is for Glory, update number of King takes and check for win
         pass
 
-    def when_leaves_play(self) -> None:
+    def when_leaves_play(self, name) -> None:
         """"Cleanup" or "deconstructor: actions for a persistent card to take when this cards leaves play.
         TBH this is almost entirely for Back to the Basics."""
         pass
@@ -114,7 +117,7 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
         self.msg = None
         return msg
     
-    def when_leaves_play(self) -> None:
+    def when_leaves_play(self, game) -> None:
         self.zamboni.square_this_is_on.remove_occupant(self.zamboni)
 
 
@@ -124,7 +127,7 @@ class BackToTheBasics(Card):
         super().__init__(game=game, name="Back to the Basics", is_persistent=False)
         
         for card in game.active_cards:
-            card.when_leaves_play()
+            card.when_leaves_play(game)
         game.active_cards = []
 
     def get_message(self) -> str:
@@ -151,7 +154,7 @@ class Landslide(Card):
         for piece in eligible_pieces:
             ray = piece.square_this_is_on.get_squares_in_ray(direction=direction, moving_piece=piece, only_nontaking=True)
             if not ray: continue
-            game.move_piece(piece, ray[-1])
+            game.move_piece(piece, ray[-1], enforce_whose_turn_it_is=False)
             
             game.board.highlight_square(ray[-1], color="yellow_highlight")
             n_slides += 1
@@ -166,7 +169,11 @@ class FlippedClassroom(Card):
     def __init__(self, game):
         super().__init__(game=game, name="Flipped Classroom", is_persistent=False)
         self.message = "You haven't switched teams... but the board has flipped!"
+        
+        # Reverse the grid
         game.board.board_grid = game.board.board_grid[::-1]
+
+        # Reverse the grid indices
         new_row_names_to_idx = game.board.row_names_to_idx.copy()
         n_rows = len(game.board.row_names_to_idx)  # likely: 8
         for row_name, idx in game.board.row_names_to_idx.items():
@@ -193,9 +200,50 @@ class EpiscopiVagantes(Card):
         for piece in game.board.get_pieces(types=['bishop']):
             piece.interaction_type = InteractionType.SWAPPING
    
-    def when_leaves_play(self):
+    def when_leaves_play(self, game):
         for piece in game.board.get_pieces(types=['bishop']):
             piece.interaction_type = InteractionType.TAKING
+
+
+class IdentityCrisis(Card):
+    text = """Roll two dice. The pieces that correspond to those numbers switch moving capabilities and roles. If the same number is rolled on both die, reroll:
+
+1 = Pawns
+2 = Knights
+3 = Bishops
+4 = Rooks
+5 = Queen
+6 = King
+
+Concessions
+Each player must have at least one of each of the two types of pieces. If this is not the case, reroll. If a 6 is rolled, the all of the new piece(s) that move as the King must be captured for the game to end, and if the original King is captured, the game continues.
+
+"""
+    def __init__(self, game):
+        """IMPLEMENTATION DECISION: This also changes the type of the piece. This exegesis is from iterpretation of the clause about kings.
+        MAJOR TODO: may not handle game end condition in the case of Kings.
+        """
+        super().__init__(game=game, name="Identity Crisis", is_persistent=True)
+        piece_type_a, piece_type_b = random.choices(["pawn", "knight", "bishop", "rook", "queen", "king"], k=2)
+        for piece in game.board.get_pieces(types=[piece_type_a]):
+            piece.moves_as =  piece_type_b # # ALL_MOVING_STYLES[piece_type_b]
+            piece.type = piece_type_b
+        for piece in game.board.get_pieces(types=[piece_type_b]):
+            piece.moves_as =  piece_type_a
+            piece.type = piece_type_a
+        self.piece_type_b = piece_type_b
+        self.piece_type_a = piece_type_a
+
+        self.message = f"Ach noo! all your {piece_type_a} move as {piece_type_b}, and vise versa!"
+       
+   
+    def when_leaves_play(self, game):
+        for piece in game.board.get_pieces(types=[self.piece_type_a]):
+            piece.moves_as =  self.piece_type_a
+            piece.type = self.piece_type_a
+        for piece in game.board.get_pieces(types=[self.piece_type_b]):
+            piece.moves_as =  self.piece_type_b
+            piece.type = self.piece_type_b
 
 
 ALL_CARDS = {
@@ -204,6 +252,7 @@ ALL_CARDS = {
     "BackToTheBasics": BackToTheBasics,
     "FlippedClassroom": FlippedClassroom,
     "EpiscopiVagantes": EpiscopiVagantes,
+    "Crisis": IdentityCrisis,
 }
 
-TEST_DECK = [EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

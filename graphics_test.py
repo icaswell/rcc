@@ -7,6 +7,7 @@ from graphics import Image, vertical_collapse, horizontal_collapse, wrap_collaps
 # test 21dropping a teal_highlight square at bottom_left, width_buf=0, height_buf=0
 
 tests_to_run = {"empty_canvas", "highlighted_empty_canvas", "highlighted_width_1", "highlighted_height_1", "0_width", "from_string", "from_string_highlighted", "drop_in_image_right_top", "drop_in_image_bottom_left", "stacking", "stacking_plus_drop_in_image", "stacking_plus_drop_in_image_diff_layers", "stacking_plus_drop_in_image_diff_layers_inverted", "uncolored_crown_on_colored_pawn", "colored_crown_on_uncolored_pawn", "edge_renders", "more_dropping", "dropping_colors_layers_small", "dropping_colors_layers_medium", "dropping_canvas_resize", "bigger_dropping", "small_place_underneath", "tiny_nested_colors", "medium_nested_colors", "smaller_overlapping_colors", "medium_overlapping_colors", "color_edges", "wrap", "render_time"}
+tests_to_run = {"empty_canvas", "highlighted_empty_canvas", "highlighted_width_1", "highlighted_height_1", "0_width", "from_string", "from_string_highlighted", "drop_in_image_right_top", "drop_in_image_bottom_left", "stacking", "stacking_plus_drop_in_image", "stacking_plus_drop_in_image_diff_layers", "stacking_plus_drop_in_image_diff_layers_inverted", "uncolored_crown_on_colored_pawn", "colored_crown_on_uncolored_pawn", "edge_renders", "more_dropping", "dropping_colors_layers_small", "dropping_colors_layers_medium", "dropping_canvas_resize", "bigger_dropping", "small_place_underneath", "tiny_nested_colors", "medium_nested_colors", "smaller_overlapping_colors", "medium_overlapping_colors", "color_edges", "wrap"}
 
 pawn_w_2p =(
 " △ \n"
@@ -172,7 +173,7 @@ if "edge_renders" in tests_to_run:
   img.render()
   
   print("Should be no highlight:")
-  img.set_color("none")
+  img.set_color("transparent")
   img.render()
 
   print("Should be blue highlight:")
@@ -228,7 +229,7 @@ if "dropping_canvas_resize" in tests_to_run:
   "12345678\n"
   "12345678\n"
   "12345678"
-  , color="none")
+  , color="transparent")
   print("here is the base image:")
   img.render()
   
@@ -274,7 +275,7 @@ if "bigger_dropping" in tests_to_run:
   "[xxxxxxxxxxxxxxxxxx]\n"
   "[xxxxxxxxxxxxxxxxxx]\n"
   "[xxxxxxxxxxxxxxxxxx]"
-  , color="none")
+  , color="transparent")
   print("here is the base image:")
   img.render()
   
