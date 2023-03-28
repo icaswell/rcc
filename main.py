@@ -5,8 +5,8 @@ from animation import INTRO_VIDEO
 
 def main():
   G = Game(TEST_GAME_CONFIG)
-  INTRO_VIDEO.play()
-  unused = input()
+  # INTRO_VIDEO.play()
+  # unused = input()
   # G = Game(STANDARD_CHESS)
   G.play_game_interactive()
 

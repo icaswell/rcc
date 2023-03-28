@@ -237,7 +237,77 @@ swapper =(
 "       -        \n"
 "                ")
 
+
+plague_stage_0  =(
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"🦠\u200b              ")
+
+plague_stage_1  =(
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"🤧\u200b              ")
+
+plague_stage_2  =(
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"🤮\u200b              ")
+
+plague_stage_3  =(
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"💀\u200b              ")
+
+plague_stage_4  =(
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"🦠\u200b              \n"
+"🤧\u200b              \n"
+"🤮\u200b              \n"
+"💀\u200b              ")
+
+coyote = (
+"  / \      _-' .\n"
+" /|  \-''- _  / \n"
+" { |         \  \n"
+" /           \  \n"
+" |    \"△.  |△ } \n"
+"   \       \ ;  \n"
+"     ''-_   \   \n"
+"       /    \"   ")
+
 OTHER_PIECES = {
         "zamboni": zamboni,
-        "swapper": swapper
+        "swapper": swapper,
+        "coyote": coyote,
+        }
+
+PLAGUE_IMAGES = {
+        0 : plague_stage_0,
+        1 : plague_stage_1,
+        2 : plague_stage_2,
+        3 : plague_stage_3,
+        4 : plague_stage_4,
         }

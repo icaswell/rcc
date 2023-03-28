@@ -3,6 +3,7 @@ import graphics
 
 # an "enum"
 MODES_OF_MOVEMENT = ["normal", "jumping"]
+DIRECTIONS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
 
 class InteractionType(enum.Enum):
     # This piece takes whatever it lands on.

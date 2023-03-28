@@ -1,3 +1,5 @@
+import random
+
 from graphics import Image
 from name_registry import register_name
 from asset_library import STANDARD_PIECES, OTHER_PIECES
@@ -113,10 +115,6 @@ ALL_MOVING_STYLES = {
 
 class Piece():
 
-    # special_stuff = {}  # any special enchantments or attributes
-    # e.g. that it has the one ring, or is a successor, or riastrad, guzunder
-
-
     def __init__(self, team, piece_type, name, moves_as = None, interaction_type: InteractionType = InteractionType.TAKING, img:Image=None):
         if img:
             self.img = img
@@ -131,11 +129,24 @@ class Piece():
         self.orientation = "s" if team == "White" else "n"
         self.has_moved = False
         self.square_this_is_on = None
+        self.special_stuff = {}  # any special enchantments or attributes, e.g. that it has the one ring, or is a successor, or riastrad, guzunder
+        # map of string to Image
+        self.extra_images = {}  # sometimes a card will add some image on top of this piece, e.g. if it has the Ring...
 
     def __repr__(self):
-        return f"{self.name} ({self.team}'s {self.type})"
+        return self.name # f"{self.name} ({self.team}'s {self.type})"
     def __str__(self):
         return self.__repr__()
+
+    def get_image(self):
+        if not self.extra_images:
+            return self.img
+        else:
+            # this could al be done more cleverly and efficiently by just modifying self.img, and then calling pop_layer
+            out_img = self.img.copy()
+            for img in self.extra_images.values():
+                out_img.drop_in_image(img, location=(0,0))
+            return out_img
 
 
     def can_be_taken_by(self, piece: Piece) -> bool:
@@ -235,4 +246,4 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
     def __init__(self, team, name):
         moves_as = random.choice("knight bishop rook queen".split())
         img = Image(OTHER_PIECES["coyote"], color="transparent", name=f"{name}_img")
-        super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.PUSHING, img=img)
+        super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.SWAPPING, img=img)

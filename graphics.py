@@ -78,6 +78,8 @@ class Pixel():
         
     def surface(self) -> str:
       """Get the surface form of the pixel"""
+      if self.val == "\u200b":
+          return ""  # handle zero-width space
       # TODO raise error if printed length is not 1 .. but how to get printed length ?
       color_close_tag = COLOR_END if self.color_open_tag else ""
       return f"{self.color_open_tag}{self.val}{color_close_tag}"
@@ -214,7 +216,7 @@ class Image():
         n_cols_in_last_row = len(s) % self.width
         if location == "lower_right":
           row_offset = (self.height - 1) - n_rows_this_message_will_span 
-          col_offset = (self.width) - n_cols_in_last_row 
+          col_offset = (self.width) - n_cols_in_last_row -1
         elif location == "upper_left":
           row_offset = 0
           col_offset = 0
@@ -393,9 +395,9 @@ class Image():
           self.width = len(rows[0])
         else:
             if self.height != len(rows):
-                raise ValueError(f"cannot insert a string with {len(rows)} rows into an image with height {self.height}")
+                 raise ValueError(f"cannot insert a string with {len(rows)} rows into an image with height {self.height}")
             if self.width != len(rows[0]):
-                raise ValueError(f"cannot insert a string with {len(rows[0])} columnss into an image with width {self.width}")
+                 raise ValueError(f"cannot insert a string with {len(rows[0])} columnss into an image with width {self.width}")
 
         string_pixels = []
         for row_i in range(self.height):

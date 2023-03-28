@@ -2,6 +2,7 @@ import random
 from graphics import Image
 import piece
 from piece import ALL_MOVING_STYLES
+from asset_library import PLAGUE_IMAGES
 from constants import *
 
 class Deck():
@@ -42,7 +43,12 @@ class Card():
         return self.name
 
     def get_message(self) -> str:
-        return self.message
+        msg = self.message
+        self.message = None
+        return msg
+    
+    def when_leaves_play(self, game) -> None:
+        self.zamboni.square_this_is_on.remove_occupant(self.zamboni)
 
     def upkeep_action(self, game):
         # e.g. advance plague
@@ -76,11 +82,13 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
         birthsquare.occupants = [self.zamboni]
         self.zamboni.square_this_is_on = birthsquare
 
-        # variables for trackign movement
+        # variables for tracking movement
         self.how_many_turns_have_i_traveled_straight = 0
         self.how_long_is_this_straightaway = 1
         self.whichth_straightaway = 0 # 0 or 1
-
+   
+    def when_leaves_play(self, game):
+        game.mark_piece_as_dead_and_remove_from_board(self.coyote)
 
     def upkeep_action(self, game) -> None:
         """TODO: bug when it runs into something that can't take. Not only does it not push it...it vanishes.
@@ -110,16 +118,6 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
                 self.whichth_straightaway = 0
                 self.how_long_is_this_straightaway += 1
 
-    def get_message(self) -> str:
-        """Only give a message on the first turn it is drawn
-        """
-        msg = self.message
-        self.msg = None
-        return msg
-    
-    def when_leaves_play(self, game) -> None:
-        self.zamboni.square_this_is_on.remove_occupant(self.zamboni)
-
 
 class BackToTheBasics(Card):
     text = """Remove all cards from play that alter the rules of the game. This includes the removal of all nonstandard pieces."""
@@ -130,8 +128,7 @@ class BackToTheBasics(Card):
             card.when_leaves_play(game)
         game.active_cards = []
 
-    def get_message(self) -> str:
-        return "You are back to the basics! There are no random cards in play!"
+        self.message =  "You are back to the basics! There are no random cards in play!"
 
 class Landslide(Card):
     text = """All Pawns, Knights and Bishops move as far to their owner’s left as they can, until they hit an edge or another piece."""
@@ -159,10 +156,6 @@ class Landslide(Card):
             game.board.highlight_square(ray[-1], color="yellow_highlight")
             n_slides += 1
         return n_slides
-
-    def get_message(self) -> str:
-        return self.message
-        
 
 class FlippedClassroom(Card):
     text = """Rotate board 180º. Continue playing. (Each player still controls the same pieces.)"""
@@ -234,7 +227,7 @@ Each player must have at least one of each of the two types of pieces. If this i
         self.piece_type_b = piece_type_b
         self.piece_type_a = piece_type_a
 
-        self.message = f"Ach noo! all your {piece_type_a} move as {piece_type_b}, and vise versa!"
+        self.message = f"Ach noo! all your {piece_type_a} move as {piece_type_b}, and vice versa!"
        
    
     def when_leaves_play(self, game):
@@ -245,6 +238,91 @@ Each player must have at least one of each of the two types of pieces. If this i
             piece.moves_as =  self.piece_type_b
             piece.type = self.piece_type_b
 
+class Coyote(Card):
+    text = """Place Coyote on any square in the board.  Roll to determine whether Coyote moves as a Knight, a Bishop, a Rook, or a Queen. Coyote moves autonomously during your upkeep. Coyote cannot take or be taken.  When either of these events would occur, instead swap Coyote with the relevant piece.
+
+Each move Coyote makes must be as far as possible--for instance, if Coyote moves as a Rook, each turn Coyote chooses between the options Left, Right, Forward, Back and No Move, and goes as far in that direction as possible - either hitting an edge or swapping places with a piece."""
+    def __init__(self, game):
+        super().__init__(game=game, name="Coyote", is_persistent=True)
+        self.i_move_on_whose_upkeep = game.whose_turn
+        self.coyote = piece.CoyotePiece(team="Coyotus", name="Coyotus")
+
+        birthsquare = game.board.get_random_square()
+        self.message = f"Coyote (moving as a {self.coyote.moves_as}) has generated on square {birthsquare}!!"
+        for occ in birthsquare.occupants:
+            game.mark_piece_as_dead_and_remove_from_board(occ)
+        birthsquare.occupants = [self.coyote]
+        self.coyote.square_this_is_on = birthsquare
+   
+    def when_leaves_play(self, game):
+        game.mark_piece_as_dead_and_remove_from_board(self.coyote)
+
+    def upkeep_action(self, game) -> None:
+        if game.whose_turn != self.i_move_on_whose_upkeep:
+            return
+
+        moves = self.coyote.get_possible_moves()
+        move = random.choice(list(moves.id_to_move.values()))
+
+        if DEV_MODE:
+          print(f"moving from {self.coyote.square_this_is_on} to {move}")
+        game.move_piece(self.coyote, move, enforce_whose_turn_it_is=False)
+
+class Plague(Card):
+    # I am sorry dear reader, this card is not implemented very cleanly.
+    # one also need be careful to see whether the counters are implemented correctly.
+    text = """Randomly select one of your pieces to come down with a highly infectious and deadly disease. On the third turn after being infected*, an infected piece first infects all pieces orthogonal to it. After it passes on the infection, roll a die to see whether it recovers from the plague, keeps the plague, or passes away. All three have equal probability. 
+"""
+    def __init__(self, game):
+        super().__init__(game=game, name="Plague", is_persistent=True)
+        self.messages = []
+        pieces = game.board.get_pieces(team=game.whose_turn)
+        infected_piece = random.choice(pieces)
+        self.give_plague(infected_piece, None)
+   
+    def when_leaves_play(self, game):
+        for piece in game.board.get_pieces():
+            del piece.special_stuff["plague_state"]
+
+    def give_plague(self, infected_piece, infecting_piece):
+        stage = 0
+        if infecting_piece and infecting_piece.team != infected_piece.team:
+            stage = -1
+        infected_piece.special_stuff["plague_state"] = stage
+        self.messages.append(f"{infected_piece} got the plague!")
+        infected_piece.extra_images["plague"] = Image(from_string=PLAGUE_IMAGES[0])
+
+    def advance_plague(self, piece):
+        if "plague_state" not in piece.special_stuff: return
+        piece.special_stuff["plague_state"] += 1
+        piece.extra_images["plague"] = Image(from_string=PLAGUE_IMAGES[piece.special_stuff["plague_state"]])
+
+    def upkeep_action(self, game) -> None:
+        # plague state is defined such that its owner has two full teams before the fatal upkeep.
+        self.message = ""
+        for piece in game.board.get_pieces():
+            if "plague_state" not in piece.special_stuff: continue
+            self.advance_plague(piece)
+            self.messages.append(f"{piece}'s plague advanced to stage {piece.special_stuff['plague_state']}!")
+            if piece.special_stuff["plague_state"] == 4:
+                for adjacent_piece in piece.square_this_is_on.get_adjacent_occupants():
+                  self.give_plague(infected_piece=adjacent_piece, infecting_piece=piece)
+                prognosis = random.choice([0, 1, 2])
+                if prognosis == 0:  # recovery!
+                    del piece.special_stuff["plague_state"]
+                    del piece.extra_images["plague"]
+                    self.messages.append(f"{piece} recovered!")
+                elif prognosis == 0:  # stays sick!
+                    self.give_plague(infected_piece, None)
+                    self.messages.append(f"{piece} still has plague!!")
+                else:  # dies!
+                    game.mark_piece_as_dead_and_remove_from_board(piece)
+                    self.messages.append(f"{piece} died!")
+
+    def get_message(self) -> str:
+        msg = "; ".join(self.messages)
+        self.messages = []
+        return msg
 
 ALL_CARDS = {
     "Zamboni": ZamboniCard,
@@ -253,6 +331,8 @@ ALL_CARDS = {
     "FlippedClassroom": FlippedClassroom,
     "EpiscopiVagantes": EpiscopiVagantes,
     "Crisis": IdentityCrisis,
+    "Coyote": Coyote,
+    "Plague": Plague,
 }
 
-TEST_DECK = [IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

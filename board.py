@@ -1,7 +1,9 @@
+import random
+from typing import List
+
 from graphics import Image
 from name_registry import register_name
 from piece import Piece, PieceMoves
-from typing import List
 
 from constants import *
 
@@ -34,9 +36,10 @@ class Square():
         full_img = self.base_img.copy()
         width, height = full_img.width, full_img.height
         for occupant in self.occupants:
-          if occupant.img.width != width: raise ValueError(f"Cannot stack {occupant.name}'s image of width {occupant.img.width} into square {self.name} of width {width}")
-          if occupant.img.height != height: raise ValueError(f"Cannot stack {occupant.name}'s image of height {occupant.img.height} into square {self.name} of height {height}")
-          full_img.stack_on_image(occupant.img)
+          occupant_img = occupant.get_image()
+          if occupant_img.width != width: raise ValueError(f"Cannot stack {occupant.name}'s image of width {occupant.img.width} into square {self.name} of width {width}")
+          if occupant_img.height != height: raise ValueError(f"Cannot stack {occupant.name}'s image of height {occupant.img.height} into square {self.name} of height {height}")
+          full_img.stack_on_image(occupant_img)
           if DEV_MODE:
               full_img.print_in_string(occupant.name)
         full_img.set_color(self.color)
@@ -186,6 +189,10 @@ class Square():
                     raise ValueError("wtf?")
         return cur_square
 
+    def get_adjacent_occupants(self):
+      return [occ for square in self.neighbors.values() for occ in square.occupants]
+
+
 
     def get_neighbor(self, direction):
         # direction can be N, NE, E, Se, S, etc.
@@ -321,9 +328,14 @@ class Board():
         square = self.square_from_a1_coordinates(square)
         return square.get_occupants()
 
+    def get_random_square(self) -> Square:
+        row_i = random.randint(0, self.board_height - 1)
+        col_j = random.randint(0, self.board_width - 1)
+        return self.board_grid[row_i][col_j]
+
     def get_pieces(self, types:List[str]=None, team:str=None, reverse_rows:bool=False) -> List[Piece]:
         # for square in self.square_map:
-        if types and any(c.isupper() for c in "".join(types)):
+        if types and any(c.isupper() for c in "".join(types)):  # canot wait to replace this with enum!
             raise ValueError(f"piece types are always lowercase; got {types}")
         if team and team.islower():
             raise ValueError(f"Team names are always uppercase; got {team}")

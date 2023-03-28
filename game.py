@@ -1,4 +1,5 @@
 from collections import defaultdict
+import random
 from time import sleep
 from typing import List, Set, Dict, Union
 import random
@@ -182,7 +183,7 @@ class Game():
           graveyard_img.print_in_string(f"  {player}'s Graveyard")
           graveyard_row = []
           for dead_piece in self.dead_pieces[player]:
-              dead_piece_img = dead_piece.img
+              dead_piece_img = dead_piece.get_image()
               dead_piece_img.print_in_string(dead_piece.name)
               graveyard_row.append(dead_piece_img)
           row_img = wrap_collapse(graveyard_row, self.graveyard_width, height_buf=1)
@@ -268,7 +269,8 @@ class Game():
 
     def mark_piece_as_dead_and_remove_from_board(self, piece):
        self.dead_pieces[piece.team].append(piece)
-       self.living_pieces[piece.team].remove(piece)
+       if piece.team in self.living_pieces:
+         self.living_pieces[piece.team].remove(piece)
        piece.alive = False  # this may be redundant
        if piece in piece.square_this_is_on.occupants:
            piece.square_this_is_on.occupants.remove(piece)
