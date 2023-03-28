@@ -442,6 +442,8 @@ class Game():
            self.move_square_selection("l", ["8"])
        elif cmd == "set_random_seed":
            random.seed(int(args[0]))
+       elif cmd == "retro":
+           COLOR_SCHEME.update(RETRO_COLOR_SCHEME)
        elif cmd == "r":
            self.render()
        elif cmd == "n":

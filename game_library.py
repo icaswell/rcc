@@ -35,7 +35,7 @@ def validate_config(config):
 # also with the players key
 STANDARD_CHESS = {
         "players": ["White", "Black"],
-        "players_orientations": ["s", "n"],
+        "players_orientations": {"White": "s", "Black": "n"},  # TODO unify above?
         "board_height": 8,
         "board_width": 8,
         "square_height": 8,
@@ -80,7 +80,7 @@ STANDARD_CHESS = {
 
 TEST_GAME_CONFIG = {
         "players": ["White", "Black"],
-        "players_orientations": ["s", "n"],
+        "players_orientations": {"White": "s", "Black": "n"},  # TODO unify above?
         "board_height": 8,
         "board_width": 8,
         "square_height": 8,

@@ -35,7 +35,7 @@ def parse_command(line):
 # Augh this should somehow be decoubled from game.py
 COMMAND_ACTIONS = {"halp", "q", "g", "m", "h", "j", "k", 
                    "l", "gg", "G", "r", "n", "d",
-                   "ds", "set_random_seed", "dev"}
+                   "ds", "set_random_seed", "dev", "retro"}
 
 def print_help():
     print(f"""
@@ -65,6 +65,7 @@ $ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2
 
 {colorize('Advanced/Debugging:',     'green')}
           {colorize('dev',       'red')}: toggle dev mode
+          {colorize('retro',       'red')}: turn on retro colors (not reversible lol)
           {colorize('d',         'red')}: draw a card
 """)
 
