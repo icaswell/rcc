@@ -27,10 +27,13 @@ class Square():
     def __str__(self):
         return self.__repr__()  # meow
 
-    def update_neighbors(self, neighbors: list) -> None:
+    def update_neighbors(self, neighbors: dict) -> None:
         """NOTE this never removes neighbors. May need to have an extra option for some cards.
         """
         self.neighbors.update(neighbors)
+        to_pop = [k for k, v in neighbors.items() if v is None]
+        for p in to_pop:
+            self.neighbors.pop(p)
 
     def get_image(self) -> Image:
         full_img = self.base_img.copy()
@@ -54,14 +57,11 @@ class Square():
         if not hasattr(piece, "img"):
             raise ValueError("Occupants must be renderable")
         self.occupants.append(piece)
-        # NOTE: the assignment below also happens in piece.action_when_lands_on.
-        # the duplication is OK and makes custom piece adds less error prone.
-        #  note 2: THIS WAS NOT OK
         piece.square_this_is_on = self
 
     def remove_occupant(self, piece:Piece) -> Piece:
         if not  self.occupants:
-            raise ValueError(f"Square {self.name} does nto have any occupants!")
+            raise ValueError(f"Square {self.name} does not have any occupants!")
         piece_name = piece.name if isinstance(piece, Piece) else piece
         piece_idx = -1
         for i, occupant in enumerate(self.occupants):
@@ -70,7 +70,16 @@ class Square():
                 break
         if piece_idx == -1:
             raise ValueError(f"Cannot remove piece {piece_name} from square {self.name}, since said square only has these {len(self.occupants)} occupants: {', '.join([o.name for o in self.occupants])}.")
-        return self.occupants.pop(piece_idx)
+        popped_piece = self.occupants.pop(piece_idx)
+        popped_piece.square_this_is_on = None
+        return popped_piece
+
+    def transfer_piece_here(self, piece:Piece) -> Piece:
+        if piece in self.occupants:
+            raise ValueError(f"OOPS! {piece} already on {self}")
+        old_square = piece.square_this_is_on
+        old_square.remove_occupant(piece)
+        self.add_occupant(piece)
 
     def add_debug_layer(self) -> None:
         debug_string = f"{self.name.replace('square_', 's')}:"
@@ -194,11 +203,12 @@ class Square():
 
 
 
-    def get_neighbor(self, direction):
+    def get_neighbor(self, direction:str) -> Square:
         # direction can be N, NE, E, Se, S, etc.
         # return list of pointers
         # normally just 1 but e.g. those slidey things have multiple ones
-        pass
+        return self.neighbors.get(direction, None)
+
     # def action_when_landed_on(self, landing_piece:Piece) -> None:
     #     # e.g. activate boojum, teleport piece to other portal, etc.
     #     EDIT: boojum, portal etc. are pieces (ocupants
@@ -233,9 +243,9 @@ class Board():
         self.board_width = game_config["board_width"] 
         # This all may seem a bit extra for a simple indexing...but remember that the board can be rotated around!
         self.col_names_to_idx = {a:i for i, a in enumerate('abcdefgh')}
-        self.idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
         self.row_names_to_idx = {i+1:i for i in range(self.board_height)}
-        self.idx_to_row_names = {i:a for a, i in self.row_names_to_idx.items()}
+        idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
+        idx_to_row_names = {i:a for a, i in self.row_names_to_idx.items()}
 
         # Initialize all the Square objects
         for row_i in range(game_config["board_height"]):
@@ -245,7 +255,7 @@ class Board():
                   sq_color = COLOR_SCHEME["BLACK_SQUARE_COLOR"]
                 else:
                   sq_color = COLOR_SCHEME["WHITE_SQUARE_COLOR"]
-                alpha_name = f"{self.idx_to_col_names[col_j]}{self.idx_to_row_names[row_i]}"
+                alpha_name = f"{idx_to_col_names[col_j]}{idx_to_row_names[row_i]}"
                 square = Square(width=self.square_width, height=self.square_height, name=alpha_name, color=sq_color)
                 self.board_grid[row_i].append(square)
                 self.square_map[square.name] = square
@@ -261,29 +271,34 @@ class Board():
             piece = piece_generator()
             self.add_new_piece(piece, piece_row, piece_col)
 
+        self.make_border_images()
 
+
+    def make_border_images(self):
         # add the pretty edges of the board
         # this could be done in a simpler way with the newer graphics methods
+        idx_to_col_names = {i:a for a, i in self.col_names_to_idx.items()}
+        idx_to_row_names = {i:a for a, i in self.row_names_to_idx.items()}
         v_border_width = 2
         h_border_width = 1
         v_border_block = " "*v_border_width + "\n"
         vertical_border_img = v_border_block*h_border_width
-        for i in range(game_config["board_height"]):
+        for i in range(self.board_height):
             vert_chunk = [v_border_block] * self.square_height
             vert_chunk[self.square_height // 2] = f" {i + 1}\n"
             vertical_border_img += ''.join(vert_chunk)
         vertical_border_img += v_border_block[0:-1]  # remove newline
 
         horizontal_border_img = v_border_block[0:-1]
-        for i in range(game_config["board_width"]):
+        for i in range(self.board_width):
             horiz_chunk = [" "]* self.square_width
-            horiz_chunk[self.square_width//2] = self.idx_to_col_names[i].upper()
+            horiz_chunk[self.square_width//2] = idx_to_col_names[i].upper()
             horizontal_border_img += ''.join(horiz_chunk)
 
-        self.left_border = Image(from_string=vertical_border_img, name="left_border", color=COLOR_SCHEME["BORDER_COLOR"])
-        self.right_border = self.left_border.copy(name="right_border")
-        self.top_border = Image(from_string=horizontal_border_img, name="top_border", color=COLOR_SCHEME["BORDER_COLOR"])  
-        self.bottom_border = self.top_border.copy(name="bottom_border")
+        self.left_border = Image(from_string=vertical_border_img, color=COLOR_SCHEME["BORDER_COLOR"])
+        self.right_border = self.left_border.copy()
+        self.top_border = Image(from_string=horizontal_border_img, color=COLOR_SCHEME["BORDER_COLOR"])  
+        self.bottom_border = self.top_border.copy()
 
     def add_debug_layer(self) -> None:
         for name, square in self.square_map.items():
@@ -429,14 +444,8 @@ class Board():
 
         #=========================================================
         # The piece leaves its start square....
-        piece.action_when_vacates(end_square) # activate anything that the piece does when it leaves a square (usually nothing)
-        start_square.remove_occupant(piece)
+        piece.action_when_vacates(start_square) # activate anything that the piece does when it leaves a square (usually nothing)
         # start_square.action_when_vacated(piece)
-
-        #=========================================================
-        # And lands on the next square.
-        piece.action_when_lands_on(end_square) # activate anything that the piece does when it lands on a square (usually nothing)
-        # end_square.action_when_landed_on(piece)
 
         # Handle taking. (etherization is different.)
         pieces_to_remove_from_square = []
@@ -447,7 +456,12 @@ class Board():
         for dead_piece in pieces_to_remove_from_square:
             end_square.occupants.remove(dead_piece)
         
-        end_square.add_occupant(piece)
+        end_square.transfer_piece_here(piece)
+
+        #=========================================================
+        # And lands on the next square.
+        piece.action_when_lands_on(end_square) # activate anything that the piece does when it lands on a square (usually nothing)
+        # end_square.action_when_landed_on(piece)
 
         #=========================================================
         # some checks to make sure we have programmed this right...
@@ -484,10 +498,12 @@ class Board():
         return taken_pieces
 
     def swap_pieces(self, piece: Piece, landing_square: Square) -> List[Piece]:
+        # First add all the occupants of the landing square onto piece's square,
+        # then move piece to the landing square.
         for occ in landing_square.occupants:
-          piece.square_this_is_on.occupants.append(occ)
-          occ.square_this_is_on = piece.square_this_is_on
-        landing_square.occupants = []
+            piece.square_this_is_on.transfer_piece_here(occ)
+            # piece.square_this_is_on.occupants.append(occ)
+            # occ.square_this_is_on = piece.square_this_is_on
         return self.move_piece_proper(piece, landing_square)        
 
     def push(self, first_pushed_square, direction) -> List[Piece]:
@@ -503,7 +519,7 @@ class Board():
         cur_square.occupants = []
         while True:
             # TODO this will need to change if we on;y want some types of occupants pushed
-            next_square = cur_square.neighbors.get(direction, None)
+            next_square = cur_square.get_neighbor(direction)
             if next_square is None:
                 # You have pushed off the edge of the board and these pieces die!!
                 # Design decision: this is death and not the ether.
@@ -517,9 +533,10 @@ class Board():
             # NOT doing the following: if you are pushed you don't get to activate your moving abilities.
             # for occ in occupants_in_limbo:
             #   occ.action_when_vacates(next_square)
-            next_square.occupants = occupants_in_limbo
+            # next_square.occupants = occupants_in_limbo
             for occ in occupants_in_limbo:
-                occ.square_this_is_on = next_square
+                next_square.transfer_piece_here(occ)
+                # occ.square_this_is_on = next_square
             occupants_in_limbo = occupants_in_limbo_tmp
             if next_square_was_empty:
                 break
@@ -551,6 +568,8 @@ class Board():
             raise ValueError(f"Got row ID '{row}' and col ID '{col}', but row ID is not numeric.")
         col_idx = self.col_names_to_idx[col.lower()]
         row_idx = self.row_names_to_idx[int(row)]
+        if row_idx >= len(self.board_grid) or col_idx >= len(self.board_grid[row_idx]):
+            raise ValueError(f"Square {a1_coord} (row={row_idx}, col={col_idx}) is impossible bruh")
         return self.board_grid[row_idx][col_idx]
 
 

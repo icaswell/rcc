@@ -211,9 +211,12 @@ class Game():
       sidebar_width_buf = 3
 
       # Add the messages from the cards
-      messages_img = Image(height=max(4, len(self.messages_this_turn)), width=120)
+      messages_img_width = self.board.board_width*self.board.square_width
+      n_message_lines = sum([(len(m)//messages_img_width + 1) for m in self.messages_this_turn])
+      messages_img = Image(height=max(4, n_message_lines), width=messages_img_width)
       for i, msg in enumerate(self.messages_this_turn):
           # Lol these messages can overlap!
+          if not msg: continue
           messages_img.print_in_string(msg, location=(i, 0))
       # Delete all messages from this turn
       self.messages_this_turn = []
@@ -233,7 +236,7 @@ class Game():
       game_image.drop_in_image_by_coordinates(card_row_img, upper_left_row=n_empty_rows_above, upper_left_col=0)
       game_image.drop_in_image_by_coordinates(graveyard_img, upper_left_row=board_start_row, upper_left_col=board_img.width + sidebar_width_buf)
     
-      game_image.drop_in_image_by_coordinates(turn_info_img, upper_left_row=board_start_row + board_img.height, upper_left_col=board_img.width - turn_info_img.width)
+      game_image.drop_in_image_by_coordinates(turn_info_img, upper_left_row=board_start_row + board_img.height - turn_info_img.height, upper_left_col=board_img.width)
       game_image.drop_in_image_by_coordinates(board_img, upper_left_row=board_start_row, upper_left_col=0)
       game_image.drop_in_image_by_coordinates(messages_img, upper_left_row=board_start_row + board_img.height, upper_left_col=0)
       # side_bar_img.drop_in_image(turn_info_img, "bottom_left", height_buf = 2)
@@ -263,9 +266,18 @@ class Game():
       return prompt_str
 
     def perform_upkeep(self):
+        to_pop = []
         for card in self.active_cards:
             card.upkeep_action(self)
-            self.messages_this_turn.append(card.get_message())
+            card_message = card.get_message()
+            if card_message:
+              self.messages_this_turn.append(card_message)
+            if not card.is_active:
+                card.when_leaves_play(game)
+                to_pop.append(card)
+        for card in to_pop:
+            self.active_cards.pop(card)
+
 
     def mark_piece_as_dead_and_remove_from_board(self, piece):
        self.dead_pieces[piece.team].append(piece)
@@ -273,7 +285,7 @@ class Game():
          self.living_pieces[piece.team].remove(piece)
        piece.alive = False  # this may be redundant
        if piece in piece.square_this_is_on.occupants:
-           piece.square_this_is_on.occupants.remove(piece)
+           piece.square_this_is_on.remove_occupant(piece)
 
     def move_piece(self, piece, end_square, enforce_whose_turn_it_is = True):
       """Note: this method moves the piece and updates living and dead pieces.
@@ -398,7 +410,7 @@ class Game():
         card = card_fn(self)
         DEV_PRINT(f"Drew {card.name}")
         self.take_action_from_command(input_cmd = f"# drew card {card}")
-        if card.is_persistent:
+        if card.is_active:
             self.active_cards.append(card)
         card_message = card.get_message()
         if card_message:
@@ -499,7 +511,7 @@ class Game():
             print(f"{self.command_prompt()}", end="")
             if DEV_MODE:
               print(traceback.format_exc())
-              print(colorize("Comand history: ", "red"), end="")
+              print(colorize("Command history: ", "red"), end="")
               print(self.command_history)
             # print(exc_tb)
 

@@ -123,6 +123,7 @@ class Piece():
         register_name(name)
         self.name = name
         self.type = piece_type
+        self.is_royal = self.type in {"queen", "king"}
         self.moves_as = moves_as if moves_as else piece_type
         self.interaction_type = interaction_type 
         self.team = team
@@ -166,7 +167,6 @@ class Piece():
         # what happens when it leaves a particular square
         # usually: nothing
         # the board handles taking it out of the square's occupants list
-        self.square_this_is_on = square
         self.has_moved = True
 
 
@@ -174,7 +174,8 @@ class Piece():
         # what happens when it lands on something else
         # usually: nothing
         # (the action_when_landed_on method handles being taken)
-        self.square_this_is_on = square
+        # self.square_this_is_on = square
+        pass
 
     def action_when_landed_on(self, piece_landing_on_me: Piece) -> None:
         # usually: mark itself as dead

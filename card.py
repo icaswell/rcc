@@ -1,6 +1,7 @@
 import random
 from graphics import Image
 import piece
+import board
 from piece import ALL_MOVING_STYLES
 from asset_library import PLAGUE_IMAGES
 from constants import *
@@ -20,7 +21,6 @@ class Deck():
 
 
 class Card():
-    # is]_active = True
 
     text = """Pls fill in the text field"""
     def __init__(self, game, name="uninintialized", is_persistent=False):
@@ -30,7 +30,8 @@ class Card():
         """
         self.message = ""
         self.name = name
-        self.is_persistent = is_persistent
+        # self.is_persistent = is_persistent
+        self.is_active = True if is_persistent else False
         # text = ""
 
         self.img = Image(width=32, height=24)
@@ -46,9 +47,6 @@ class Card():
         msg = self.message
         self.message = None
         return msg
-    
-    def when_leaves_play(self, game) -> None:
-        self.zamboni.square_this_is_on.remove_occupant(self.zamboni)
 
     def upkeep_action(self, game):
         # e.g. advance plague
@@ -61,7 +59,7 @@ class Card():
     def when_leaves_play(self, name) -> None:
         """"Cleanup" or "deconstructor: actions for a persistent card to take when this cards leaves play.
         TBH this is almost entirely for Back to the Basics."""
-        pass
+        self.is_active = False
 
 class ZamboniCard(Card):
     text = """Place a Zamboni on a center square at random.  The Zamboni moves one space per turn during your upkeep in a clockwise spiral around the board, pushing all pieces it hits. The Zamboni acts as a piece that cannot be taken.
@@ -79,8 +77,9 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
         squashed_pieces = birthsquare.occupants
         for squashed in squashed_pieces:
             game.mark_piece_as_dead_and_remove_from_board(squashed)
-        birthsquare.occupants = [self.zamboni]
-        self.zamboni.square_this_is_on = birthsquare
+        birthsquare.add_occupant(self.zamboni)
+        # birthsquare.occupants = [self.zamboni]
+        # self.zamboni.square_this_is_on = birthsquare
 
         # variables for tracking movement
         self.how_many_turns_have_i_traveled_straight = 0
@@ -88,7 +87,8 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
         self.whichth_straightaway = 0 # 0 or 1
    
     def when_leaves_play(self, game):
-        game.mark_piece_as_dead_and_remove_from_board(self.coyote)
+        self.is_active = False
+        game.mark_piece_as_dead_and_remove_from_board(self.zamboni)
 
     def upkeep_action(self, game) -> None:
         """TODO: bug when it runs into something that can't take. Not only does it not push it...it vanishes.
@@ -103,8 +103,8 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
 
         # If the zamboni has passed off the end of the board:
         if not next_square:
-            game.active_cards.remove(self) # the card is no longer active
-            self.zamboni.square_this_is_on.occupants.remove(self.zamboni)
+            self.is_active=False
+            return
         else:
             game.move_piece(self.zamboni, next_square, enforce_whose_turn_it_is=False)
 
@@ -194,6 +194,7 @@ class EpiscopiVagantes(Card):
             piece.interaction_type = InteractionType.SWAPPING
    
     def when_leaves_play(self, game):
+        self.is_active=False
         for piece in game.board.get_pieces(types=['bishop']):
             piece.interaction_type = InteractionType.TAKING
 
@@ -231,6 +232,7 @@ Each player must have at least one of each of the two types of pieces. If this i
        
    
     def when_leaves_play(self, game):
+        self.is_active=False
         for piece in game.board.get_pieces(types=[self.piece_type_a]):
             piece.moves_as =  self.piece_type_a
             piece.type = self.piece_type_a
@@ -251,14 +253,19 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
         self.message = f"Coyote (moving as a {self.coyote.moves_as}) has generated on square {birthsquare}!!"
         for occ in birthsquare.occupants:
             game.mark_piece_as_dead_and_remove_from_board(occ)
-        birthsquare.occupants = [self.coyote]
-        self.coyote.square_this_is_on = birthsquare
+        birthsquare.add_occupant(self.coyote)
+        # birthsquare.occupants = [self.coyote]
+        # self.coyote.square_this_is_on = birthsquare
    
     def when_leaves_play(self, game):
         game.mark_piece_as_dead_and_remove_from_board(self.coyote)
+        self.active = False
 
     def upkeep_action(self, game) -> None:
         if game.whose_turn != self.i_move_on_whose_upkeep:
+            return
+        if not self.coyote.alive:
+            self.is_active=False
             return
 
         moves = self.coyote.get_possible_moves()
@@ -281,6 +288,7 @@ class Plague(Card):
         self.give_plague(infected_piece, None)
    
     def when_leaves_play(self, game):
+        self.active = False
         for piece in game.board.get_pieces():
             del piece.special_stuff["plague_state"]
 
@@ -300,8 +308,10 @@ class Plague(Card):
     def upkeep_action(self, game) -> None:
         # plague state is defined such that its owner has two full teams before the fatal upkeep.
         self.message = ""
+        at_least_one_piece_is_infected = False
         for piece in game.board.get_pieces():
             if "plague_state" not in piece.special_stuff: continue
+            at_least_one_piece_is_infected = True
             self.advance_plague(piece)
             self.messages.append(f"{piece}'s plague advanced to stage {piece.special_stuff['plague_state']}!")
             if piece.special_stuff["plague_state"] == 4:
@@ -318,11 +328,93 @@ class Plague(Card):
                 else:  # dies!
                     game.mark_piece_as_dead_and_remove_from_board(piece)
                     self.messages.append(f"{piece} died!")
+        if not at_least_one_piece_is_infected:
+            self.messages.append("WOW YOU BEAT THE PANDEMIC!!!!")
+            self.is_active = False
 
     def get_message(self) -> str:
         msg = "; ".join(self.messages)
         self.messages = []
         return msg
+
+class Tesseract(Card):
+    text = """Randomly choose one column that has no royal pieces on it.  Remove this column from the board. All pieces on it are removed from play, and the board now is 7 by 8 squares."""
+    def __init__(self, game):
+        super().__init__(game=game, name="Tesseract", is_persistent=True)
+        
+        potential_cols = {i for i in range(game.board.board_width)}
+        for row in game.board.board_grid:
+            for col_j in range(len(row)):
+                if any(occ.is_royal for occ in row[col_j].occupants):
+                    potential_cols == {col_j}
+        self.removed_col = random.choice(list(potential_cols))
+
+        self.removed_occs = []
+        self.removed_squares = []
+        for row_i in range(len(game.board.board_grid)):
+            doomed_square = game.board.board_grid[row_i].pop(self.removed_col)
+            self.removed_occs += doomed_square.occupants
+            self._crosswire_neighbors(doomed_square)
+            self.removed_squares.append(doomed_square)
+        game.board.board_width -= 1
+        game.board.make_border_images()
+
+        for removed_piece in self.removed_occs:
+            # the only purpose of moving these is so they can't
+            # be selected in the normal way, because this would cause
+            # an error if they tried to move to a square via an a1 coordinate that no longer existed.
+            # This itself is only likely to be an issue because of how nonsense_turn relies on living_pieces
+            team = removed_piece.team
+            if team in game.living_pieces:
+              game.living_pieces[team].remove(removed_piece)
+
+        self.removed_letter = 'abcdefgh'[self.removed_col]
+        for letter, idx in game.board.col_names_to_idx.items():
+            if letter > self.removed_letter: 
+                game.board.col_names_to_idx[letter] -= 1
+        game.board.col_names_to_idx.pop(self.removed_letter)
+        self.message = f"Column {self.removed_letter.upper()} was folded out of existence, leaving the following pieces unmoored in a different dimension: {self.removed_occs}"
+
+    def _decrosswire_neighbors(self, square: board.Square):
+        left_neighbor, right_neighbor = square.get_neighbor("w"), square.get_neighbor("e")
+        n, s = square.get_neighbor("n"), square.get_neighbor("s")
+
+        if left_neighbor is not None:
+            left_neighbor.update_neighbors({"ne": n, "se": s, "e": square}) 
+        if right_neighbor is not None:
+            right_neighbor.update_neighbors({"nw": n, "sw": s, "w": square}) 
+
+
+    def _crosswire_neighbors(self, square: board.Square):
+        left_neighbor, right_neighbor = square.get_neighbor("w"), square.get_neighbor("e")
+
+        if left_neighbor is not None:
+            ne = square.get_neighbor("ne")
+            se = square.get_neighbor("se")
+            left_neighbor.update_neighbors({"ne": ne, "se": se, "e": right_neighbor}) 
+
+        if right_neighbor is not None:
+            nw = square.get_neighbor("nw")
+            sw = square.get_neighbor("sw")
+            right_neighbor.update_neighbors({"nw": nw, "sw": sw, "w": left_neighbor}) 
+
+   
+    def when_leaves_play(self, game):
+        for letter, idx in game.board.col_names_to_idx.items():
+            if letter > self.removed_letter: 
+                game.board.col_names_to_idx[letter] += 1
+        game.board.col_names_to_idx[self.removed_letter] = self.removed_col
+        for row_i in range(len(game.board.board_grid)):
+            game.board.board_grid[row_i].insert(self.removed_col, self.removed_squares[row_i])
+            self._decrosswire_neighbors(self.removed_squares[row_i])
+        game.board.board_width += 1
+        game.board.make_border_images()
+        for removed_piece in self.removed_occs:
+            team = removed_piece.team
+            game.living_pieces[team].append(removed_piece)
+
+        
+
 
 ALL_CARDS = {
     "Zamboni": ZamboniCard,
@@ -333,6 +425,7 @@ ALL_CARDS = {
     "Crisis": IdentityCrisis,
     "Coyote": Coyote,
     "Plague": Plague,
+    "Tesseract": Tesseract,
 }
 
-TEST_DECK = [Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
