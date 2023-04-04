@@ -12,8 +12,8 @@ def main():
   else:  # Normal mode
     DEV_MODE = []
     DEV_MODE.append('gg')
-    # INTRO_VIDEO.play(); unused = input()
-    # HBD_VIDEO.play()
+    INTRO_VIDEO.play(); unused = input()
+    HBD_VIDEO.play()
     G = Game(RCC)
   G.play_game_interactive()
 

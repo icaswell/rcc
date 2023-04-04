@@ -219,7 +219,7 @@ class Game():
         n_cards = len(self.active_cards)
         if not n_cards:
             return Image(height=1, width=0)
-        board_width = self.board.board_width + self.board.square_width
+        board_width = self.board.board_width * self.board.square_width
         card_display_width = board_width + self.graveyard_width
         return wrap_collapse([card.img for card in self.active_cards], width=card_display_width, width_buf=1)
 
@@ -540,6 +540,7 @@ class Game():
            return NORENDER
        else:
            raise ValueError(f"Oops you didn't add an elif statement for command '{cmd}'")
+       DEV_PRINT(self.command_history)
 
 
         
