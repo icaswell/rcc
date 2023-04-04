@@ -47,7 +47,7 @@ $ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2
 
 {colorize('General Commands:',     'green')}
           {colorize('halp',      'red')}: print this string.
-          {colorize('r',         'red')}: refresh
+          {colorize('r',         'red')}: refresh the screen
           {colorize('q',         'red')}: quit this game.
 
 {colorize('Moving the selection around:',     'green')}
@@ -60,12 +60,11 @@ $ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2
           {colorize('g XY [-k]', 'red')}: go to square XY, selecting the piece on it (alternate option -k: keep existing selection) 
 
 {colorize('Taking your turn:',     'green')}
-          {colorize('m XY',      'red')}: Move the selected piece to square XY
-          {colorize('n [K] [--s=X] [--s=Y]', 'red')}: Take a nonsense turn.  alternately, take K nonsense turns, withS seconds wait between them, and take probability T.
+          {colorize('m N',      'red')}: Move the selected piece to the square indicated as N (the lower right-hand corner of every available move will show a number if the piece is selected)
+          {colorize('n [K] [--s=X] [--s=Y]', 'red')}: Take a nonsense turn. Alternately, take K nonsense turns, with S seconds wait between them, and take probability T.
 
 {colorize('Advanced/Debugging:',     'green')}
           {colorize('dev',       'red')}: toggle dev mode
-          {colorize('retro',       'red')}: turn on retro colors (not reversible lol)
           {colorize('d',         'red')}: draw a card
 """)
 

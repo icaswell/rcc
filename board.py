@@ -209,14 +209,6 @@ class Square():
         # normally just 1 but e.g. those slidey things have multiple ones
         return self.neighbors.get(direction, None)
 
-    # def action_when_landed_on(self, landing_piece:Piece) -> None:
-    #     # e.g. activate boojum, teleport piece to other portal, etc.
-    #     EDIT: boojum, portal etc. are pieces (ocupants
-    #     pass
-    # def action_when_vacated(self, piece:Piece) -> None:
-    #     pass
-    # def get_all_adjacent(self):
-    #     pass
     def get_occupants(self) -> list:
         # usually returns one, but there can be coocupation...
         # TODO return a copy of this!!!
@@ -343,10 +335,34 @@ class Board():
         square = self.square_from_a1_coordinates(square)
         return square.get_occupants()
 
-    def get_random_square(self) -> Square:
-        row_i = random.randint(0, self.board_height - 1)
-        col_j = random.randint(0, self.board_width - 1)
-        return self.board_grid[row_i][col_j]
+    def can_take_from_here(self, square:Square, piece:Piece) -> bool:
+        """can piece make any taking move fromthis square?
+        """
+        true_square = piece.square_this_is_on
+        piece.square_this_is_on = square # put it here temporarily to see where it can go
+        moves_if_it_were_here = piece.get_possible_moves()
+        piece.square_this_is_on = true_square # put it back on its true square
+        return len(moves_if_it_were_here.taking) != 0
+
+    def get_random_square(self, must_be_unoccupied:bool=False, piece_that_cannot_take_from_here:Piece=None) -> Square:
+        """
+        Args:
+          piece_that_cannot_take_from_here: if not None, don't select any square that would allow this piece to take.
+        """
+        possible_squares = []
+        for row in self.board_grid:
+            for square in row:
+                if must_be_unoccupied and square.occupants:
+                    continue
+                if piece_that_cannot_take_from_here is not None and  self.can_take_from_here(square, piece_that_cannot_take_from_here):
+                    continue
+                possible_squares.append(square)
+        DEV_PRINT(possible_squares)
+        return random.choice(possible_squares)
+
+        # row_i = random.randint(0, self.board_height - 1)
+        # col_j = random.randint(0, self.board_width - 1)
+        # return self.board_grid[row_i][col_j]
 
     def get_pieces(self, types:List[str]=None, team:str=None, reverse_rows:bool=False) -> List[Piece]:
         # for square in self.square_map:
@@ -448,20 +464,17 @@ class Board():
         # start_square.action_when_vacated(piece)
 
         # Handle taking. (etherization is different.)
-        pieces_to_remove_from_square = []
+        pieces_landed_on = []
         for occupant in end_square.occupants:
-            occupant.action_when_landed_on(piece)
-            if not occupant.alive:
-                pieces_to_remove_from_square.append(occupant)
-        for dead_piece in pieces_to_remove_from_square:
-            end_square.occupants.remove(dead_piece)
+          pieces_landed_on.append(occupant)
+        # for dead_piece in pieces_landed_on:
+        #     end_square.occupants.remove(dead_piece)
         
         end_square.transfer_piece_here(piece)
 
         #=========================================================
         # And lands on the next square.
         piece.action_when_lands_on(end_square) # activate anything that the piece does when it lands on a square (usually nothing)
-        # end_square.action_when_landed_on(piece)
 
         #=========================================================
         # some checks to make sure we have programmed this right...
@@ -471,7 +484,7 @@ class Board():
         for occupant in end_square.occupants:
             if occupant.square_this_is_on != end_square:
                 raise ValueError(f"Square {end_square.name} has {occupant.name} as an occupant, but that occupant has its current square as {occupant.square_this_is_on.name if occupant.square_this_is_on else 'None'}.")
-        return pieces_to_remove_from_square
+        return pieces_landed_on
 
 
     def rotate_direction_clockwise(self, direction:str, n_ticks:int):

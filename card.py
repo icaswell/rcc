@@ -3,8 +3,9 @@ from graphics import Image
 import piece
 import board
 from piece import ALL_MOVING_STYLES
-from asset_library import PLAGUE_IMAGES
+from asset_library import PLAGUE_STAGES
 from constants import *
+from name_registry import get_unique_name
 
 class Deck():
     def __init__(self, cards, shuffle=True):
@@ -32,6 +33,7 @@ class Card():
         self.name = name
         # self.is_persistent = is_persistent
         self.is_active = True if is_persistent else False
+        self.i_was_drawn_on_whose_turn = game.whose_turn
         # text = ""
 
         self.img = Image(width=32, height=24)
@@ -66,12 +68,11 @@ class ZamboniCard(Card):
 If it ever reaches the end of the spiral, it exits the board and leaves play.
 """
     def __init__(self, game):
-        super().__init__(game=game, name="ZamboniCard", is_persistent=True)
+        super().__init__(game=game, name="Zamboni", is_persistent=True)
         squares_and_orientations = [("d4", "e"),  ("d5", "n"),  ("e4", "s"),  ("e5", "w")]
         birthsquare_name, self.orientation = random.choice(squares_and_orientations)
         self.message = f"A Zamboni has generated on square {birthsquare_name}!!!!"
         birthsquare = game.board.square_from_a1_coordinates(birthsquare_name)
-        self.i_move_on_whose_upkeep = game.whose_turn
 
         self.zamboni = piece.ZamboniPiece(team="Elijah", name="Zamboni")
         squashed_pieces = birthsquare.occupants
@@ -93,7 +94,7 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
     def upkeep_action(self, game) -> None:
         """TODO: bug when it runs into something that can't take. Not only does it not push it...it vanishes.
         """
-        if game.whose_turn != self.i_move_on_whose_upkeep:
+        if game.whose_turn != self.i_was_drawn_on_whose_turn:
             return
         cur_square = self.zamboni.square_this_is_on
         next_square = cur_square.get_square_from_directions(piece=self.zamboni, directions=[self.orientation])
@@ -246,7 +247,6 @@ class Coyote(Card):
 Each move Coyote makes must be as far as possible--for instance, if Coyote moves as a Rook, each turn Coyote chooses between the options Left, Right, Forward, Back and No Move, and goes as far in that direction as possible - either hitting an edge or swapping places with a piece."""
     def __init__(self, game):
         super().__init__(game=game, name="Coyote", is_persistent=True)
-        self.i_move_on_whose_upkeep = game.whose_turn
         self.coyote = piece.CoyotePiece(team="Coyotus", name="Coyotus")
 
         birthsquare = game.board.get_random_square()
@@ -262,7 +262,7 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
         self.active = False
 
     def upkeep_action(self, game) -> None:
-        if game.whose_turn != self.i_move_on_whose_upkeep:
+        if game.whose_turn != self.i_was_drawn_on_whose_turn:
             return
         if not self.coyote.alive:
             self.is_active=False
@@ -271,8 +271,7 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
         moves = self.coyote.get_possible_moves()
         move = random.choice(list(moves.id_to_move.values()))
 
-        if DEV_MODE:
-          print(f"moving from {self.coyote.square_this_is_on} to {move}")
+        DEV_PRINT(f"moving from {self.coyote.square_this_is_on} to {move}")
         game.move_piece(self.coyote, move, enforce_whose_turn_it_is=False)
 
 class Plague(Card):
@@ -298,12 +297,12 @@ class Plague(Card):
             stage = -1
         infected_piece.special_stuff["plague_state"] = stage
         self.messages.append(f"{infected_piece} got the plague!")
-        infected_piece.extra_images["plague"] = Image(from_string=PLAGUE_IMAGES[0])
+        infected_piece.extra_images["plague"] = Image(from_string=PLAGUE_STAGES[0])
 
     def advance_plague(self, piece):
         if "plague_state" not in piece.special_stuff: return
         piece.special_stuff["plague_state"] += 1
-        piece.extra_images["plague"] = Image(from_string=PLAGUE_IMAGES[piece.special_stuff["plague_state"]])
+        piece.extra_images["plague"] = Image(from_string=PLAGUE_STAGES[piece.special_stuff["plague_state"]])
 
     def upkeep_action(self, game) -> None:
         # plague state is defined such that its owner has two full teams before the fatal upkeep.
@@ -415,6 +414,65 @@ class Tesseract(Card):
 
         
 
+class Rabbit(Card):
+    text = """Place a rabbit under your control anywhere on your side of the board such that it cannot take on its first move.  The rabbit moves by hopping two spaces orthogonally.
+
+During your upkeep, for each rabbit in play (whether they belong to you or not), roll a die.  If it comes up 1 or 2, the owner of that rabbit adds another rabbit on an unoccupied square of their choosing  orthogonally adjacent to that rabbit, under their control.  If it comes up a 6, that rabbit becomes autonomous.
+
+As a turn, a player may domesticate any rabbit adjacent to one of their pieces.  The domesticated rabbit is now under that player’s control.
+
+"""
+    def __init__(self, game):
+        super().__init__(game=game, name="Rabbit", is_persistent=True)
+        rabbit = piece.RabbitPiece(team="autonomous", name="Rabbitus")
+        generation_square = game.board.get_random_square(must_be_unoccupied=True, piece_that_cannot_take_from_here=rabbit)
+        generation_square.add_occupant(rabbit)
+        # TODO actually you can chose where to place the rabbit!
+        self.messages = [f"A Wild Rabbit has appeared on {generation_square}!"]
+   
+    def when_leaves_play(self, game):
+        self.active = False
+        for piece in game.board.get_pieces():
+            if piece.type == "rabbit":
+                piece.square_this_is_on.remove_occupant(piece)
+
+    def generate_offspring(self, parent):
+        neighbors = parent.square_this_is_on.get_squares_from_directions_list(parent, directions_list=[["n"], ["e"], ["s"], ["w"]])
+        unoccupied_neighbors = [neigh for neigh in neighbors if not neigh.occupants]
+        if not unoccupied_neighbors:
+            self.messages.append(f"{parent} could not generate offspring because there is no available square")
+            return
+        birthsquare = random.choice(unoccupied_neighbors )
+
+        offspring = piece.RabbitPiece(team=parent.team, name="Rabbitus")
+        birthsquare.add_occupant(offspring)
+        self.messages.append(f"{parent} had offspring {offspring} on square {birthsquare}")
+
+    def upkeep_action(self, game) -> None:
+        if game.whose_turn != self.i_was_drawn_on_whose_turn:
+            return
+        for rabbit in  game.board.get_pieces(types=["rabbit"]):
+            die_roll = random.randint(1, 6)
+            if die_roll == 6:
+                rabbit.set_team("autonomous")
+            if die_roll in {1, 2}:
+                self.generate_offspring(rabbit)
+
+            moves = rabbit.get_possible_moves()
+            move = random.choice(list(moves.id_to_move.values()))
+
+            DEV_PRINT(f"moving {rabbit} from {rabbit.square_this_is_on} to {move}")
+            game.move_piece(rabbit, move, enforce_whose_turn_it_is=False)
+
+
+
+
+    def get_message(self) -> str:
+        msg = "; ".join(self.messages)
+        self.messages = []
+        return msg
+
+
 
 ALL_CARDS = {
     "Zamboni": ZamboniCard,
@@ -426,6 +484,7 @@ ALL_CARDS = {
     "Coyote": Coyote,
     "Plague": Plague,
     "Tesseract": Tesseract,
+    "Rabbit": Rabbit,
 }
 
-TEST_DECK = [Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [Rabbit, Plague, Coyote, Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

@@ -1,7 +1,7 @@
 import random
 
 from graphics import Image
-from name_registry import register_name
+from name_registry import register_name, get_unique_name
 from asset_library import STANDARD_PIECES, OTHER_PIECES
 from constants import *
 
@@ -96,6 +96,11 @@ def GetKingMoves(piece:Piece) -> PieceMoves:
   all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions) 
   return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
+def GetRabbitMoves(piece:Piece) -> PieceMoves:
+  directions = [["n", "n"],["e", "e"],["s", "s"],["w", "w"]]
+  all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
+  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+
 def GetCamelMoves(piece:Piece) -> PieceMoves:
     directions = [["n", "n", "nw"], ["n", "n", "ne"], ["e", "e", "ne"], ["e", "e", "se"], ["s", "s", "se"], ["s", "s", "sw"], ["w", "w", "sw"], ["w", "w", "nw"]]
     all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
@@ -111,6 +116,7 @@ ALL_MOVING_STYLES = {
         "queen": GetQueenMoves,
         "king": GetKingMoves,
         "camel": GetCamelMoves,
+        "rabbit": GetRabbitMoves,
         }
 
 class Piece():
@@ -128,6 +134,7 @@ class Piece():
         self.interaction_type = interaction_type 
         self.team = team
         self.orientation = "s" if team == "White" else "n"
+        self.alive = True
         self.has_moved = False
         self.square_this_is_on = None
         self.special_stuff = {}  # any special enchantments or attributes, e.g. that it has the one ring, or is a successor, or riastrad, guzunder
@@ -173,11 +180,11 @@ class Piece():
     def action_when_lands_on(self, square) -> None:
         # what happens when it lands on something else
         # usually: nothing
-        # (the action_when_landed_on method handles being taken)
+        # (the action_when_dies method handles being taken)
         # self.square_this_is_on = square
         pass
 
-    def action_when_landed_on(self, piece_landing_on_me: Piece) -> None:
+    def action_when_dies(self, game) -> None:
         # usually: mark itself as dead
         # the Square class takes care of removing the body from the square it was on.
         self.alive = False
@@ -221,6 +228,26 @@ class King(Piece):
     def __init__(self, team, name):
         super().__init__(team=team, name=name, piece_type="king")
 
+    def action_when_dies(self, game) -> None:
+        self.alive = False
+        game.king_deaths[self.team] += 1
+
+
+class RabbitPiece(Piece):
+    def __init__(self, team, name):
+        name = get_unique_name(name)  # getting unique name here because there may be a lot of rabbits and this is OK
+        super().__init__(team=team, name=name, piece_type="rabbit", moves_as="rabbit", interaction_type=InteractionType.TAKING, img="thisisahacktopreventimageinitialization")
+        self.set_team(team)
+
+    def set_team(self, team):
+        self.team= team
+        img_name = get_unique_name(self.name + "_img")
+        self.img = Image(OTHER_PIECES[f"{team.lower()}_rabbit"], color="transparent", name=img_name)
+
+    def can_be_taken_by(self, piece: Piece) -> bool:
+        """autonomous rabbits may take each other"""
+        if self.team == "autonomous": return True
+        return self.team != piece.team
 
 class ZamboniPiece(Piece):
     def __init__(self, team, name):
@@ -248,3 +275,14 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
         moves_as = random.choice("knight bishop rook queen".split())
         img = Image(OTHER_PIECES["coyote"], color="transparent", name=f"{name}_img")
         super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.SWAPPING, img=img)
+
+# class Espresso(Piece):
+#     def __init__(self, team, name):
+#         img = Image(OTHER_PIECES["espresso"], color="transparent", name=f"{name}_img")
+#         super().__init__(team=team, name=name, piece_type="espresso", moves_as="immobile", img=img)
+#     def tangibility_wrt_incomer(self, piece: Piece) -> str:
+#         return "intangible"
+#     def action_when_landed_on(self, game, piece_landing_on_me: Piece) -> None:
+#         game.select_square_and_occupant_interactive(self.square_this_is_on)
+#         game.available_actions_this_turn.append("m")
+# 

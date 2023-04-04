@@ -6,9 +6,12 @@ import random
 
 NAME_REGISTRY = set()
 
-def register_unique_name(base):
-    # should be called in init function of any object.
+def get_unique_name(base):
     unique_name = f"{base}_{len(NAME_REGISTRY)}"
+    return unique_name
+
+def register_unique_name(base):
+    unique_name = get_unique_name(base)
     register_name(unique_name)
     return unique_name
 

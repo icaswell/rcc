@@ -7,10 +7,12 @@ import sys, os
 import traceback
 
 from board import Board, Square
-from card import ALL_CARDS
+from card import ALL_CARDS, Card
 from constants import *
 from graphics import Image, wrap_collapse, vertical_collapse, colorize
 from piece import Piece, PieceMoves
+from asset_library import DICE_FACES
+from animation import GAME_WIN_ANIMATION
 import commands
 
 class Player():
@@ -46,6 +48,7 @@ class Game():
       self.all_cards = []
       self.turn_order = game_config["players"]
       self.human_players = game_config["players"]
+      self.king_deaths = {player:0 for player in self.human_players}
       # self.turn_order = ["Ibrahim", "White", "Elijah",  "Black"]  # Ibrahim is the "player" corresponding to white's pkeep
       # self.upkeep_players = ["Ibrahim", "Elijah"]
       self.living_pieces =    defaultdict(list)
@@ -56,6 +59,8 @@ class Game():
         self.dead_pieces[player] = []
         self.etherized_pieces[player] = []
 
+      self.die_roll = 1
+      self.die_roll_fn = game_config["die_roll_function"]
       self.deck = game_config["deck"]()
       self.active_cards = []
       # self.past_cards = []
@@ -66,6 +71,8 @@ class Game():
       self.selected_pieces = []
       self.messages_this_turn = ["There are no selected pieces."]
       self._cur_available_piece_moves = None
+      self.available_actions_per_turn = ["m"]  # default: can do one Move ("m")
+      self.available_actions_this_turn = self.available_actions_per_turn.copy()
 
       self.board = Board(game_config)
       for player in self.human_players:
@@ -81,9 +88,51 @@ class Game():
       random.seed(seed)
       self.command_history = [f"set_random_seed {seed}"]
 
-
       # rendering stuff
       self.graveyard_width = game_config["square_width"] * 4 + 2 # aka it can fit four pieces, plus two pixels for good luck
+
+    def check_for_winner(self):
+        # Obviously this has to change
+        if self.king_deaths["White"] > 0: return "Black"
+        if self.king_deaths["Black"] > 0: return "White"
+        return None
+
+    def incorporate_action_and_check_for_end_of_turn(self, action):
+        if not self.available_actions_this_turn:
+            raise ValueError(f"Action {action} is not possible this turn, as there are no more available actions this turn.")
+        if action not in self.available_actions_this_turn:
+            raise ValueError(f"Action {action} is not possible this turn; you can only do {self.available_actions_this_turn}")
+        self.available_actions_this_turn.remove(action)
+
+        if not self.available_actions_this_turn:
+          # Aha! you have no more actions so the turn ends!
+          # Let's do the turn-ending things.
+          # Note: self.available_actions_this_turn is re-filled in the upkeep.
+          new_turn_idx = self.turn_order.index(self.whose_turn) + 1
+          self.whose_turn = self.turn_order[new_turn_idx%len(self.turn_order)]
+          self.turn_number += 1
+          self.perform_upkeep()
+          self.roll_for_card()
+
+    def roll_for_card(self):
+        self.die_roll = self.die_roll_fn(self.turn_number)
+        self.messages_this_turn.append(f"You rolled a {self.die_roll}!")
+        if self.die_roll == 1 and not DEV_MODE:
+            card = self.draw_card()
+
+    def perform_upkeep(self):
+        to_pop = []
+        for card in self.active_cards:
+            card.upkeep_action(self)
+            card_message = card.get_message()
+            if card_message:
+              self.messages_this_turn.append(card_message)
+            if not card.is_active:
+                card.when_leaves_play(game)
+                to_pop.append(card)
+        for card in to_pop:
+            self.active_cards.pop(card)
+        self.available_actions_this_turn = self.available_actions_per_turn.copy()
 
     def execute_commands(self, cmd_history: List[str], display:bool=False) -> None:
         for cmd in cmd_history:
@@ -143,11 +192,6 @@ class Game():
          sleep(n_secs_wait)
 
 
-    def turn_end_actions(self):
-        new_turn_idx = self.turn_order.index(self.whose_turn) + 1
-        self.whose_turn = self.turn_order[new_turn_idx%len(self.turn_order)]
-        self.turn_number += 1
-
     def play_nonsense_game(self, n_turns=15, n_secs_wait = 0.05, take_prob = 0.8):
         # TODO decompose so that this can call execute_command!!
         # Also make sure that handles turn end actions etc.
@@ -155,11 +199,20 @@ class Game():
             if self.turn_number > n_turns : break
             self.take_nonsense_turn(n_secs_wait, take_prob)
 
+
     def get_turn_info_img(self):
         rows = [f"turn number: {self.turn_number}", f"Whose turn:  {self.whose_turn}"]
         max_len = max(len(s) for s in rows)
         rows = [r.ljust(max_len, " ") for r in rows]
-        return Image(from_string="\n".join(rows), color=COLOR_SCHEME["MESSAGE_COLOR"])
+        color="blue_highlight" if self.whose_turn == "Black" else "teal_highlight"
+
+        img = Image(from_string="\n".join(rows), color=color)
+        img.drop_in_image(Image(from_string=DICE_FACES[self.die_roll]), location=(0, img.width + 2))
+        return img
+        # Below: stack die over turn info
+        # die_img = Image(from_string=DICE_FACES[self.die_roll])
+        # die_img.drop_in_image(Image(from_string="\n".join(rows), color=color), location="bottom_left", height_buf=1)
+        # return die_img
 
 
     def get_card_row_img(self):
@@ -193,6 +246,28 @@ class Game():
         return img if img else Image(height=1, width=0)
         # return wrap_collapse(graveyard_images, self.graveyard_width)
 
+    def get_messages_img(self):
+
+      # messages below board: 
+      # messages_img_width = self.board.board_width*self.board.square_width
+      # messages below graveyard: 
+      messages_img_width = self.graveyard_width
+      def height_of_message(m):
+          return (len(m)//messages_img_width + 1)
+      self.messages_this_turn = [f">>> {m}" for m in self.messages_this_turn]
+      n_message_lines = sum([height_of_message(m) for m in self.messages_this_turn])
+      messages_img = Image(height=max(4, n_message_lines), width=messages_img_width)
+      row_i = 0
+      for msg in self.messages_this_turn:
+          if not msg: continue
+          messages_img.print_in_string(msg, location=(row_i, 0))
+          row_i += height_of_message(msg)
+
+      # Delete all messages from this turn
+      self.messages_this_turn = []
+      return messages_img
+
+
     def render(self):
       # get board image
       # get graveyard images
@@ -210,19 +285,9 @@ class Game():
       n_empty_rows_above = 20
       sidebar_width_buf = 3
 
-      # Add the messages from the cards
-      messages_img_width = self.board.board_width*self.board.square_width
-      n_message_lines = sum([(len(m)//messages_img_width + 1) for m in self.messages_this_turn])
-      messages_img = Image(height=max(4, n_message_lines), width=messages_img_width)
-      for i, msg in enumerate(self.messages_this_turn):
-          # Lol these messages can overlap!
-          if not msg: continue
-          messages_img.print_in_string(msg, location=(i, 0))
-      # Delete all messages from this turn
-      self.messages_this_turn = []
-
+      messages_img = self.get_messages_img()
       graveyard_img = self.get_graveyard_img()
-      turn_info_img = self.get_turn_info_img()
+      turn_info_img = self.get_turn_info_img()  # includes whose team and the die roll
       card_row_img = self.get_card_row_img()
       game_img_height = board_img.height + turn_info_img.height + card_row_img.height + n_empty_rows_above + 2
       game_img_width = board_img.width + graveyard_img.width + sidebar_width_buf
@@ -230,16 +295,15 @@ class Game():
 
       board_start_row = card_row_img.height + n_empty_rows_above
 
-      # side_bar_img = Image(height=1, width=0) # TODO make 0-height work!!
-      # if graveyard_img:
-          # side_bar_img.drop_in_image(graveyard_img, "bottom_left")
       game_image.drop_in_image_by_coordinates(card_row_img, upper_left_row=n_empty_rows_above, upper_left_col=0)
-      game_image.drop_in_image_by_coordinates(graveyard_img, upper_left_row=board_start_row, upper_left_col=board_img.width + sidebar_width_buf)
-    
-      game_image.drop_in_image_by_coordinates(turn_info_img, upper_left_row=board_start_row + board_img.height - turn_info_img.height, upper_left_col=board_img.width)
       game_image.drop_in_image_by_coordinates(board_img, upper_left_row=board_start_row, upper_left_col=0)
-      game_image.drop_in_image_by_coordinates(messages_img, upper_left_row=board_start_row + board_img.height, upper_left_col=0)
+      game_image.drop_in_image_by_coordinates(graveyard_img, upper_left_row=board_start_row, upper_left_col=board_img.width + sidebar_width_buf)
+      game_image.drop_in_image_by_coordinates(messages_img, upper_left_row=board_start_row + graveyard_img.height + 2, upper_left_col=board_img.width + sidebar_width_buf)
+      # game_image.drop_in_image_by_coordinates(messages_img, upper_left_row=board_start_row + board_img.height, upper_left_col=0)
+    
       # side_bar_img.drop_in_image(turn_info_img, "bottom_left", height_buf = 2)
+      # game_image.drop_in_image_by_coordinates(turn_info_img, upper_left_row=board_start_row + board_img.height - turn_info_img.height, upper_left_col=board_img.width)
+      game_image.drop_in_image_by_coordinates(turn_info_img, upper_left_row=board_start_row + board_img.height, upper_left_col=0)
 
       # board_img.drop_in_image(side_bar_img, "right_top", width_buf=3)
       # empty_top_bit_to_hide_past_board = Image(height=10, width=0)  # the width will be expanded after the dropping
@@ -265,29 +329,17 @@ class Game():
       # prompt_str += f"\n\033[1A\033[{len(prompt_str)}C"
       return prompt_str
 
-    def perform_upkeep(self):
-        to_pop = []
-        for card in self.active_cards:
-            card.upkeep_action(self)
-            card_message = card.get_message()
-            if card_message:
-              self.messages_this_turn.append(card_message)
-            if not card.is_active:
-                card.when_leaves_play(game)
-                to_pop.append(card)
-        for card in to_pop:
-            self.active_cards.pop(card)
-
 
     def mark_piece_as_dead_and_remove_from_board(self, piece):
+       piece.action_when_dies(self)
+       self.command_history.append(f"# died: {piece.name}")
        self.dead_pieces[piece.team].append(piece)
        if piece.team in self.living_pieces:
          self.living_pieces[piece.team].remove(piece)
-       piece.alive = False  # this may be redundant
        if piece in piece.square_this_is_on.occupants:
            piece.square_this_is_on.remove_occupant(piece)
 
-    def move_piece(self, piece, end_square, enforce_whose_turn_it_is = True):
+    def move_piece(self, piece, end_square, enforce_whose_turn_it_is = True, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=False):
       """Note: this method moves the piece and updates living and dead pieces.
       It does NOT call the turn_end method.
 
@@ -296,12 +348,15 @@ class Game():
       """
       if DEV_MODE:
           enforce_whose_turn_it_is = False
-      DEV_PRINT(f">>> moving {piece} from {piece.square_this_is_on} to {end_square.name}, {self.whose_turn}'s turn")
+      DEV_PRINT(f">>> moving {piece} from {piece.square_this_is_on} to {end_square}, {self.whose_turn}'s turn")
       if enforce_whose_turn_it_is and piece.team != self.whose_turn:
         raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {piece.team}!") 
       dead_pieces = self.board.move_piece(piece, end_square)
-      for piece in dead_pieces:
-          self.mark_piece_as_dead_and_remove_from_board(piece)
+      for dead_piece in dead_pieces:
+          self.command_history.append(f"# move: {piece.name} took {dead_piece.name}")
+          self.mark_piece_as_dead_and_remove_from_board(dead_piece)
+      if this_was_a_human_making_this_move_and_thus_using_their_move_allowance:
+        self.incorporate_action_and_check_for_end_of_turn("m")
 
 
     def move_selected_piece(self, selected_move_id):
@@ -317,7 +372,7 @@ class Game():
             raise ValueError(f"Move option {selected_move_id} for {self.selected_pieces[0].name} does not exist")
 
         end_square = self._cur_available_piece_moves.id_to_move[selected_move_id]
-        self.move_piece(self.selected_pieces[0], end_square)
+        self.move_piece(self.selected_pieces[0], end_square, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=True)
         self._deselect_all()
 
         # _cur_available_piece_moves is basically a way for move_selected_piece() and _select_piece_interactive to communicate
@@ -401,20 +456,21 @@ class Game():
           self.messages_this_turn.append(card_message)
 
 
-    def draw_card(self) -> None:
+    def draw_card(self) -> Card:
         card_fn = self.deck.draw_card()
         if card_fn is None:
           self.messages_this_turn.append("No more cards in the deck!")
-          return
+          return None
 
         card = card_fn(self)
-        DEV_PRINT(f"Drew {card.name}")
         self.take_action_from_command(input_cmd = f"# drew card {card}")
         if card.is_active:
             self.active_cards.append(card)
         card_message = card.get_message()
+        self.messages_this_turn.append(f"You drew {card}!")
         if card_message:
           self.messages_this_turn.append(card_message)
+        return card
 
 
     def take_action_from_command(self, input_cmd:str, display:str=False) -> Union[str, None]:
@@ -430,7 +486,6 @@ class Game():
        if input_cmd.startswith("#"):
            return None  # this was a comment
        cmd, args, kwargs = commands.parse_command(input_cmd)
-       end_turn = False
        if cmd == "v":
            pass # view
        elif cmd == "q":
@@ -440,7 +495,6 @@ class Game():
            square_name = args[0]
            self.board.dehighlight_all()
            self.move_selected_piece(square_name)
-           end_turn = True
        elif cmd == "g":
            assert len(args) ==  1 and len(args[0]) == 2
            square_name = args[0]
@@ -487,15 +541,18 @@ class Game():
        else:
            raise ValueError(f"Oops you didn't add an elif statement for command '{cmd}'")
 
-       if end_turn: 
-         self.turn_end_actions()
-         self.perform_upkeep()
 
         
     def play_game_interactive(self):
+      self.draw_card()
       self.render()
+
       while True or False:
           try:
+            winner = self.check_for_winner()
+            if winner is not None:
+                GAME_WIN_ANIMATION(winner).play()
+                break
             line = input().strip()
             # line = input(self.command_prompt()).strip()
             self.command_history.append(line)

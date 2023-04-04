@@ -13,7 +13,7 @@ class Animation():
         self.color = color
         self.height = height
         self.width = width
-        self.top_border = '\n'*8 + '-'*self.width + "\n"
+        self.top_border = '\n'*16 + '-'*self.width + "\n"
         self.bottom_border = '-'*self.width + "\n"
         self.frames = []
         self.add_clear_frame()
@@ -51,7 +51,7 @@ class Animation():
            out_frame.append(out_row)
        return out_frame
 
-    def play(self, n_secs=0.1, top_crop=0, bottom_crop=0, left_crop=0, right_crop=0):
+    def play(self, n_secs=0.08, top_crop=0, bottom_crop=0, left_crop=0, right_crop=0):
         # cropped_frames = [colorize(self.crop_frame(frame), self.color) for frame in self.frames]
         for frame in self.frames:
             payload = self.top_border + '|\n'.join(frame) + "|\n" + self.bottom_border
@@ -77,7 +77,7 @@ class Animation():
            # shift rows over
            for row_i in range(len(cur_frame)):
                cur_frame[row_i]  = " " + cur_frame[row_i][0:-1]
-           if i%speed: continue
+           if i%speed and i != n_frames - 1: continue
            cropped = self.crop_frame_to_size(cur_frame, upper_left_col=max_width)
            cropped = self.drop_in_frame(bottom_frame=last_old_frame, top_frame=cropped)
            self.frames.append(cropped)
@@ -118,7 +118,7 @@ INTRO_VIDEO.add_ltr_scrolling_entrance("""
  `-'                                                                                             
                                                                                            
 
-                                """, n_frames=140, row_offset=58, speed=14)
+                                """, n_frames=124, row_offset=58, speed=14)
 INTRO_VIDEO.extend_final_frame(10)
 INTRO_VIDEO.add_clear_frame()
 
@@ -185,7 +185,131 @@ INTRO_VIDEO.add_ltr_scrolling_entrance("""
  /--'_   _  (   (      /--   _ _   /  _  _     /  __   _, __ _ _   / ,  _ _   , , _
 /   / (_(/_/_)_/_)_  (/____// / /_(__(/_/ (_  (__(_)  (__(_)/ / /_(__(_/ / /_(_/_(/_ o  o  o
 
-                                                                                     """, n_frames=145, speed=30, row_offset=58)
+                                                                                     """, n_frames=125, speed=30, row_offset=58)
 
+
+
+
+
+
+
+
+HBD_VIDEO = Animation()
+
+HBD_VIDEO.add_ttb_scrolling_entrance("""
+                                .xHL                                                   ..                          
+                             .-`8888hxxx~                 .d``          .d``          @L                           
+                          .H8X  `%888*"            u      @8Ne.   .u    @8Ne.   .u   9888i   .dL                   
+                          888X     ..x..        us888u.   %8888:u@88N   %8888:u@88N  `Y888k:*888.                  
+                         '8888k .x8888888x   .@88 "8888"   `888I  888.   `888I  888.   888E  888I                  
+                          ?8888X    "88888X  9888  9888     888I  888I    888I  888I   888E  888I                  
+                           ?8888X    '88888> 9888  9888     888I  888I    888I  888I   888E  888I                  
+                        H8H %8888     `8888> 9888  9888   uW888L  888'  uW888L  888'   888E  888I                  
+                       '888> 888"      8888  9888  9888  '*88888Nu88P  '*88888Nu88P   x888N><888'                  
+                        "8` .8" ..     88*   "888*""888" ~ '88888F`    ~ '88888F`      "88"  888                   
+                           `  x8888h. d*"     ^Y"   ^Y'     888 ^         888 ^              88F                   
+                             !""*888%~                      *8E           *8E               98"                    
+                             !   `"  .                      '8>           '8>             ./"                      
+                             '-....:~                        "             "             ~`                        
+                   ...     ..         .                      s                   ..                                
+                .=*8888x <"?88h.     @88>                   :8      .uef^"     dF                       ..         
+               X>  '8888H> '8888     %8P      .u    .      .88    :d88E       '88bu.                   @L          
+              '88h. `8888   8888      .     .d88B :@8c    :888ooo `888E       '*88888bu         u     9888i   .dL  
+              '8888 '8888    "88>   .@88u  ="8888f8888r -*8888888  888E .z8k    ^"*8888N     us888u.  `Y888k:*888. 
+               `888 '8888.xH888x.  ''888E`   4888>'88"    8888     888E~?888L  beWE "888L .@88 "8888"   888E  888I 
+                 X" :88*~  `*8888>   888E    4888> '      8888     888E  888E  888E  888E 9888  9888    888E  888I 
+               ~"   !"`      "888>   888E    4888>        8888     888E  888E  888E  888E 9888  9888    888E  888I 
+                .H8888h.      ?88    888E   .d888L .+    .8888Lu=  888E  888E  888E  888F 9888  9888    888E  888I 
+               :"^"88888h.    '!     888&   ^"8888*"     ^%888*    888E  888E .888N..888  9888  9888   x888N><888' 
+               ^    "88888hx.+"      R888"     "Y"         'Y"    m888N= 888>  `"888*""   "888*""888"   "88"  888  
+                      ^"**""          ""                           `Y"   888      ""       ^Y"   ^Y'          88F  
+                                                                        J88"                                 98"   
+                                                                        @%                                 ./"     
+                                                                      :"                                  ~`       
+                      ..      ...                                                                 ..               
+                   :~"8888x :"%888x                                                              888B.             
+                  8    8888Xf  8888>                 ..    .     :                   u.    u.   48888E             
+                 X88x. ?8888k  8888X        u      .888: x888  x888.        u      x@88k u@88c. '8888'             
+                 '8888L'8888X  '%88X     us888u.  ~`8888~'888X`?888f`    us888u.  ^"8888""8888"  Y88F              
+                  "888X 8888X:xnHH(`` .@88 "8888"   X888  888X '888>  .@88 "8888"   8888  888R   '88               
+                    ?8~ 8888X X8888   9888  9888    X888  888X '888>  9888  9888    8888  888R    8F               
+                  -~`   8888> X8888   9888  9888    X888  888X '888>  9888  9888    8888  888R    4                
+                  :H8x  8888  X8888   9888  9888    X888  888X '888>  9888  9888    8888  888R    .                
+                  8888> 888~  X8888   9888  9888   "*88%""*88" '888!` 9888  9888   "*88*" 8888"  u8N.              
+                  48"` '8*~   `8888!` "888*""888"    `~    "    `"`   "888*""888"    ""   'Y"   "*88%              
+                   ^-==""      `""     ^Y"   ^Y'                       ^Y"   ^Y'                  ""               
+                                                                                                               
+                                                                                                               
+                                       """, n_frames=110, speed=3)
+
+
+
+
+
+
+def GAME_WIN_ANIMATION(team):
+  VIDEO = Animation()
+  if team == "White":
+    VIDEO.add_ttb_scrolling_entrance("""
+                                    ...    .     ...                     .         s               
+                                 .~`"888x.!**h.-``888h.     .uef^"      @88>      :8               
+                                dX   `8888   :X   48888>  :d88E         %8P      .88               
+                               '888x  8888  X88.  '8888>  `888E          .      :888ooo      .u    
+                               '88888 8888X:8888:   )?""`  888E .z8k   .@88u  -*8888888   ud8888.  
+                                `8888>8888 '88888>.88h.    888E~?888L ''888E`   8888    :888'8888. 
+                                  `8" 888f  `8888>X88888.  888E  888E   888E    8888    d888 '88%" 
+                                 -~` '8%"     88" `88888X  888E  888E   888E    8888    8888.+"    
+                                 .H888n.      XHn.  `*88!  888E  888E   888E   .8888Lu= 8888L      
+                                :88888888x..x88888X.  `!   888E  888E   888&   ^%888*   '8888c. .+ 
+                                f  ^%888888% `*88888nx"   m888N= 888>   R888"    'Y"     "88888%   
+                                     `"**"`    `"**""      `Y"   888     ""                "YP'    
+                                                                J88"                               
+                                                                @%                                 
+                                                              :"                                   
+    """, 26, speed=2)
+  elif team == "Black":
+      VIDEO.add_ttb_scrolling_entrance("""
+                                     ...     ..            ..                             ..      
+                                 .=*8888x <"?88h.   x .d88"                        < .z@8"`      
+                                X>  '8888H> '8888    5888R                          !@88E        
+                               '88h. `8888   8888    '888R         u           .    '888E   u    
+                               '8888 '8888    "88>    888R      us888u.   .udR88N    888E u@8NL  
+                                `888 '8888.xH888x.    888R   .@88 "8888" <888'888k   888E`"88*"  
+                                  X" :88*~  `*8888>   888R   9888  9888  9888 'Y"    888E .dN.   
+                                ~"   !"`      "888>   888R   9888  9888  9888        888E~8888   
+                                 .H8888h.      ?88    888R   9888  9888  9888        888E '888&  
+                                :"^"88888h.    '!    .888B . 9888  9888  ?8888u../   888E  9888. 
+                                ^    "88888hx.+"     ^*888%  "888*""888"  "8888P'  '"888*" 4888" 
+                                       ^"**""          "%     ^Y"   ^Y'     "P'       ""    ""   
+                                                                                                 
+                                                                                                       """, 26, speed=2)
+                                  
+  VIDEO.add_ttb_scrolling_entrance("""
+                                     ...    .     ...         .                     .x+=:.   
+                                  .~`"888x.!**h.-``888h.     @88>                  z`    ^%  
+                                 dX   `8888   :X   48888>    %8P      u.    u.        .   <k 
+                                '888x  8888  X88.  '8888>     .     x@88k u@88c.    .@8Ned8" 
+                                '88888 8888X:8888:   )?""`  .@88u  ^"8888""8888"  .@^%8888"  
+                                 `8888>8888 '88888>.88h.   ''888E`   8888  888R  x88:  `)8b. 
+                                   `8" 888f  `8888>X88888.   888E    8888  888R  8888N=*8888 
+                                  -~` '8%"     88" `88888X   888E    8888  888R   %8"    R88 
+                                  .H888n.      XHn.  `*88!   888E    8888  888R    @8Wou 9%  
+                                 :88888888x..x88888X.  `!    888&   "*88*" 8888" .888888P`   
+                                 f  ^%888888% `*88888nx"     R888"    ""   'Y"   `   ^"F     
+                                      `"**"`    `"**""        ""                             
+                                                                                             
+                                                                                                        """, 44, speed=2)
+                                    
+  VIDEO.add_ltr_scrolling_entrance("""
+              ____                  __                   ______            _                ________
+             / __ \____ _____  ____/ /___  ____ ___     / ____/___  ____  (_)___  ____ _   / ____/ /_  ___  __________
+            / /_/ / __ `/ __ \/ __  / __ \/ __ `__ \   / /   / __ \/ __ \/ / __ \/ __ `/  / /   / __ \/ _ \/ ___/ ___/
+           / _, _/ /_/ / / / / /_/ / /_/ / / / / / /  / /___/ /_/ / /_/ / / / / / /_/ /  / /___/ / / /  __(__  |__  )
+          /_/ |_|\__,_/_/ /_/\__,_/\____/_/ /_/ /_/   \____/\____/ .___/_/_/ /_/\__, /   \____/_/ /_/\___/____/____/
+                                                                /_/            /____/
+  """, n_frames=127, speed=20, row_offset=58)
+
+  return VIDEO
+                                                                                           
 
 
