@@ -231,7 +231,7 @@ class Game():
     # printstring = empty_top_bit_to_hide_past_board.rasterize()
     printstring =  game_image.rasterize()
     printstring += "\n" +  self.command_prompt()
-    printstring += f"\n\033[1A"  # TODO should this be in the printstring??
+    printstring += f"\n\033[1A"  # Move cursor up
     printstring += f"\033[33C"
     print(printstring, end="")
     if DEV_MODE: print()
@@ -368,7 +368,7 @@ class Game():
       self.messages_this_turn.append(card_message)
 
   def draw_card(self) -> Card:
-    card_fn = self.deck.draw_card()
+    card_fn = self.deck.draw_card(self.turn_number)
     if card_fn is None:
       self.messages_this_turn.append("No more cards in the deck!")
       return None

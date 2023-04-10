@@ -5,25 +5,30 @@ import board
 from piece import ALL_MOVING_STYLES
 from asset_library import PLAGUE_STAGES
 from constants import *
+from commands import COMMAND_ACTIONS
 from name_registry import get_unique_name
 
 
 class Deck():
-  def __init__(self, cards, shuffle=True):
+  def __init__(self, cards):
     if not isinstance(cards, list):
       raise ValueError("Cards must be a list of Cards")
     self.cards = cards
-    if shuffle:
-      random.shuffle(cards)
 
-  def draw_card(self):
-    if not self.cards:
+  def draw_card(self, turn_number):
+    available_cards = self.cards
+    if not turn_number:
+      available_cards = [c for c in self.cards if c.can_be_drawn_first_turn]
+    if not available_cards:
       return None
-    return self.cards.pop(0)
+    card = random.choice(available_cards)
+    self.cards.remove(card)
+    return card
 
 
 class Card():
   text = """Pls fill in the text field"""
+  can_be_drawn_first_turn = True
   def __init__(self, game, name="uninintialized", is_persistent=False):
     """This also functions as the card draw action. Namely, the __init__ 
     method is the place to do anything to the game that happens when this card is drawn!
@@ -117,6 +122,7 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
 
 class BackToTheBasics(Card):
   text = """Remove all cards from play that alter the rules of the game. This includes the removal of all nonstandard pieces."""
+  can_be_drawn_first_turn = False
   def __init__(self, game):
     super().__init__(game=game, name="Back to the Basics", is_persistent=False)
     for card in game.active_cards:
@@ -127,6 +133,7 @@ class BackToTheBasics(Card):
 
 class Landslide(Card):
   text = """All Pawns, Knights and Bishops move as far to their owner’s left as they can, until they hit an edge or another piece."""
+  can_be_drawn_first_turn = False
   def __init__(self, game):
     super().__init__(game=game, name="Landslide", is_persistent=False)
     self.message =  f"There was a landslide!! "
@@ -154,6 +161,7 @@ class Landslide(Card):
 
 class FlippedClassroom(Card):
   text = """Rotate board 180º. Continue playing. (Each player still controls the same pieces.)"""
+  can_be_drawn_first_turn = False
   def __init__(self, game):
     super().__init__(game=game, name="Flipped Classroom", is_persistent=False)
     self.message = "You haven't switched teams... but the board has flipped!"
@@ -174,6 +182,7 @@ class FlippedClassroom(Card):
 
 # class TheMeek(Card):
 #     text = """TODO"""
+#     can_be_drawn_first_turn = False
 #     def __init__(self, game):
 #         super().__init__(game=game, name="The Meek shall inherit the World", is_persistent=False)
 #         self.message = ""
@@ -413,6 +422,44 @@ class Tesseract(Card):
       game.living_pieces[team].append(removed_piece)
 
 
+def rabbit_domesticate_cmd(game, args, kwargs, display):
+  domesticatable_rabbits = set()
+  for my_piece in game.board.get_pieces(team=game.whose_turn):
+    for orthogonal_neighbor_square in my_piece.square_this_is_on.get_orthogonal_squares(my_piece):
+      for occ in orthogonal_neighbor_square.occupants:
+        if occ.type == "rabbit" and occ.team != game.whose_turn:
+          domesticatable_rabbits.add(occ)
+  domesticatable_rabbits = list(domesticatable_rabbits)
+  for i, rabbit in enumerate(domesticatable_rabbits):
+    game.board.highlight_square(rabbit.square_this_is_on, color="teal_highlight")
+    game.board.annotate_square(rabbit.square_this_is_on, annotation = str(i))
+  DEV_PRINT(f"You can domesticate these rabbits: {domesticatable_rabbits}")
+  
+  if not domesticatable_rabbits:
+    DEV_PRINT("THERE ARE NO RABBITS ORTHOGONALLY ADJACENT TO YOUR PIECES SO YOU CAN'T DOMESTICATE")
+    return
+
+  game.render(clear_messages=False)
+  while True:
+    if len(domesticatable_rabbits) == 1:
+      choice = 0
+      break
+    line = input(f"Enter a number from 0 to {len(domesticatable_rabbits) -1} to indicate which rabbit you want to domesticate:").strip()
+    if not line.isnumeric():
+      print(colorize("enter a numeric value", "red"))
+      continue
+    choice = int(line)
+    if not (0 <= choice < len(domesticatable_rabbits)):
+      print(colorize("enter a value between 0 and {len(domesticatable_rabbits) -1}", "red"))
+      continue
+    break
+  domesticatable_rabbits[choice].set_team(game.whose_turn)
+  game.living_pieces[game.whose_turn].append(domesticatable_rabbits[choice])
+  # It counts as a move
+  game.incorporate_action_and_check_for_end_of_turn("m")
+
+
+
 class Rabbit(Card):
   text = """Place a rabbit under your control anywhere on your side of the board such that it cannot take on its first move.  The rabbit moves by hopping two spaces orthogonally.
 
@@ -421,6 +468,7 @@ During your upkeep, for each rabbit in play (whether they belong to you or not),
 As a turn, a player may domesticate any rabbit adjacent to one of their pieces.  The domesticated rabbit is now under that player’s control.
 
 """
+  can_be_drawn_first_turn = False
   def __init__(self, game):
     super().__init__(game=game, name="Rabbit", is_persistent=True)
     rabbit = piece.RabbitPiece(team="autonomous", name="Rabbitus")
@@ -433,11 +481,16 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
     # TODO actually you can chose where to place the rabbit!
     self.messages = [f"A Wild Rabbit has appeared on {birthsquare}!"]
 
+    COMMAND_ACTIONS["domesticate"] = rabbit_domesticate_cmd
+    COMMAND_ACTIONS["dom"] = rabbit_domesticate_cmd
+
   def when_leaves_play(self, game):
     self.active = False
-    for piece in game.board.get_pieces():
-      if piece.type == "rabbit":
-        piece.square_this_is_on.remove_occupant(piece)
+    for rabbit in game.board.get_pieces(types=["rabbit"]):
+      rabbit.square_this_is_on.remove_occupant(rabbit)
+    del COMMAND_ACTIONS["domesticate"] 
+    del COMMAND_ACTIONS["dom"] 
+
 
   def generate_offspring(self, game, parent):
     neighbors = parent.square_this_is_on.get_squares_from_directions_list(parent, directions_list=[["n"], ["e"], ["s"], ["w"]])
@@ -461,25 +514,30 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
       if not rabbit.alive:  # it probably got taken by another rabbit earlier this iteration
         continue
       # Slecting the rabbit is for visual porpoises
-      game.select_square_and_occupant_interactive(rabbit.square_this_is_on)
-      game.animate_render()
       DEV_PRINT(f"  Upkeep for {rabbit.name}")
       die_roll = random.randint(1, 6)
-      if die_roll == 6:
+      if die_roll == 6 and rabbit.team  != "autonomous":
         DEV_PRINT(f"  Went autonomous!!")
+        game.living_pieces[rabbit.team].remove(rabbit)
         rabbit.set_team("autonomous")
         game.animate_render()
       if die_roll in {1, 2}:
         self.generate_offspring(game, rabbit)
         DEV_PRINT(f"  Had Offspring!")
 
-      moves = rabbit.get_possible_moves()
-      move = random.choice(list(moves.id_to_move.values()))
-      game.move_piece(rabbit, move, enforce_whose_turn_it_is=False)
+      # in classic RCC, only autonomous rabbits moved.
+      # But i decided to change this!!
+      # if rabbit.team == "autonomous":
+      game.select_square_and_occupant_interactive(rabbit.square_this_is_on)
       game.animate_render()
+      moves = rabbit.get_possible_moves()
+      if moves:
+        move = random.choice(list(moves.id_to_move.values()))
+        game.move_piece(rabbit, move, enforce_whose_turn_it_is=False)
+        game.animate_render()
 
   def get_message(self) -> str:
-    msg = "; ".join(self.messages)
+    msg = "; ".join(self.messages + ["Remember you can domesticate a rabit with the command 'dom[esticate]'!"])
     self.messages = []
     return msg
 

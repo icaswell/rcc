@@ -134,7 +134,7 @@ TEST_GAME_CONFIG = {
     "square_height": 8,
     "square_width": 16,
     "die_roll_function": lambda turn_n: 1 if not turn_n else random.randint(1, 16),
-    "deck": lambda: Deck(TEST_DECK, shuffle=False),
+    "deck": lambda: Deck(TEST_DECK),
     "initial_positions": [
       ((1, 0), lambda: Pawn(team="White", name=f"white_pawn_1")),
       ((1, 1), lambda: Pawn(team="White", name=f"white_pawn_2")),

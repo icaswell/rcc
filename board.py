@@ -136,6 +136,9 @@ class Square():
       if ctr >= 10: raise ValueError("Your board is bigger than 10 squares??")
     return reachable_squares
 
+  def get_orthogonal_squares(self, moving_piece: Piece) -> list:
+    return self.get_squares_from_directions_list(piece=moving_piece, directions_list=[["n"], ["e"], ["s"], ["w"]])
+
   def get_orthogonal_rays(self, moving_piece: Piece) -> list:
     return [square for direction in ["n", "e", "s", "w"] for square in self.get_squares_in_ray(direction, moving_piece)]
 
@@ -577,6 +580,8 @@ class Board():
       raise ValueError("Square must have one or fewer occupants for this method")
     return square.occupants[0].get_possible_moves()
 
+  def annotate_square(self, square:Square, annotation:str) -> None:
+    self.square_annotations[square.name].append(annotation)
   def highlight_square(self, square:Square, color:str=COLOR_SCHEME["SELECT_COLOR"]) -> None:
     self.highlighted_squares.update({square.name:color})
 

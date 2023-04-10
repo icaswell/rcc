@@ -200,6 +200,7 @@ def play_game_interactive(game, intro_video=True):
         print(colorize("Command history: ", "red"), end="")
         print(game.command_history)
         # print(exc_tb)
+  game.render()
 
 
 

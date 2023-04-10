@@ -252,7 +252,7 @@ class RabbitPiece(Piece):
 
 class ZamboniPiece(Piece):
   def __init__(self, team, name):
-    img = Image(OTHER_PIECES["zamboni"], color="transparent", name=f"{name}_img")
+    img = Image(OTHER_PIECES["zamboni"], color="transparent", name=get_unique_name(f"{name}_img"))
     super().__init__(team=team, name=name, piece_type="zamboni", moves_as="king", interaction_type=InteractionType.PUSHING, img=img)
 
   def can_be_taken_by(self, piece: Piece) -> bool:
@@ -274,7 +274,7 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
 """
   def __init__(self, team, name):
     moves_as = random.choice("knight bishop rook queen".split())
-    img = Image(OTHER_PIECES["coyote"], color="transparent", name=f"{name}_img")
+    img = Image(OTHER_PIECES["coyote"], color="transparent", name=get_unique_name(f"{name}_img"))
     super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.SWAPPING, img=img)
 
 # class Espresso(Piece):

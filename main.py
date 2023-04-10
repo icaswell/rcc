@@ -12,6 +12,6 @@ def main():
   else:  # Normal mode
     # DEV_MODE.append('gg')
     G = Game(RCC)
-  play_game_interactive(G, False)
+  play_game_interactive(G, intro_video=True)
 
 main()
