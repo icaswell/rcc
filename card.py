@@ -69,7 +69,7 @@ class ZamboniCard(Card):
 If it ever reaches the end of the spiral, it exits the board and leaves play.
 """
   def __init__(self, game):
-    super().__init__(game=game, name="Zamboni", is_persistent=True)
+    super().__init__(game=game, name=get_unique_name("Zamboni"), is_persistent=True)
     squares_and_orientations = [("d4", "e"),  ("d5", "n"),  ("e4", "s"),  ("e5", "w")]
     birthsquare_name, self.orientation = random.choice(squares_and_orientations)
     self.message = f"A Zamboni has generated on square {birthsquare_name}!!!!"

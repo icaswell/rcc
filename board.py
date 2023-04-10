@@ -545,7 +545,7 @@ class Board():
       else:
         cur_square = next_square
 
-      return []
+    return []
 
   def dehighlight_all(self) -> None:
     """TODO: "highlights" and "annotations" should be more unified in name, because they are the same sort of thing.
