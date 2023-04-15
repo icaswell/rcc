@@ -3,10 +3,11 @@ from graphics import Image
 import piece
 import board
 from piece import ALL_MOVING_STYLES
-from asset_library import PLAGUE_STAGES
+from asset_library import PLAGUE_STAGES, riastrad_img
 from constants import *
-from commands import COMMAND_ACTIONS
+from commands import COMMAND_ACTIONS, user_choose_square
 from name_registry import get_unique_name
+from typing import List
 
 
 class Deck():
@@ -39,8 +40,8 @@ class Card():
     self.i_was_drawn_on_whose_turn = game.whose_turn
     self.img = Image(width=32, height=24)
     self.img.set_color("teal_highlight")
-    self.img.print_in_string(self.name.replace("Card", ""), (3, 4))
-    self.img.print_in_string(self.text, (5, 4))
+    self.img.print_in_string_nicely(self.name.replace("Card", ""), (3, 4))
+    self.img.print_in_string_nicely(self.text, (5, 4))
 
   def __str__(self):
     return self.name
@@ -56,6 +57,10 @@ class Card():
 
   def update_from_turn_results(self, turn_summary):
     # e.g. for A King is for Glory, update number of King takes and check for win
+    pass
+
+  def action_after_piece_moves(self, game, piece_that_moved: piece.Piece, taken_pieces: List[piece.Piece]) -> None:
+    """A few cards may use this, like Riastrad."""
     pass
 
   def when_leaves_play(self, name) -> None:
@@ -261,7 +266,7 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
     for occ in birthsquare.occupants:
       game.mark_piece_as_dead_and_remove_from_board(occ)
     birthsquare.add_occupant(self.coyote)
-    game.select_square_and_occupant_interactive(self.coyote.square_this_is_on)
+    game.select_square_and_occupant(self.coyote.square_this_is_on)
     game.animate_render()
 
   def when_leaves_play(self, game):
@@ -279,7 +284,7 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
     move = random.choice(list(moves.id_to_move.values()))
 
     DEV_PRINT(f"moving from {self.coyote.square_this_is_on} to {move}")
-    game.select_square_and_occupant_interactive(self.coyote.square_this_is_on)
+    game.select_square_and_occupant(self.coyote.square_this_is_on)
     game.animate_render()
     game.move_piece(self.coyote, move, enforce_whose_turn_it_is=False)
 
@@ -423,6 +428,7 @@ class Tesseract(Card):
 
 
 def rabbit_domesticate_cmd(game, args, kwargs, display):
+  """This method is public bc it needs to be put in COMMANDS"""
   domesticatable_rabbits = set()
   for my_piece in game.board.get_pieces(team=game.whose_turn):
     for orthogonal_neighbor_square in my_piece.square_this_is_on.get_orthogonal_squares(my_piece):
@@ -439,22 +445,25 @@ def rabbit_domesticate_cmd(game, args, kwargs, display):
     DEV_PRINT("THERE ARE NO RABBITS ORTHOGONALLY ADJACENT TO YOUR PIECES SO YOU CAN'T DOMESTICATE")
     return
 
-  game.render(clear_messages=False)
-  while True:
-    if len(domesticatable_rabbits) == 1:
-      choice = 0
-      break
-    line = input(f"Enter a number from 0 to {len(domesticatable_rabbits) -1} to indicate which rabbit you want to domesticate:").strip()
-    if not line.isnumeric():
-      print(colorize("enter a numeric value", "red"))
-      continue
-    choice = int(line)
-    if not (0 <= choice < len(domesticatable_rabbits)):
-      print(colorize("enter a value between 0 and {len(domesticatable_rabbits) -1}", "red"))
-      continue
-    break
-  domesticatable_rabbits[choice].set_team(game.whose_turn)
-  game.living_pieces[game.whose_turn].append(domesticatable_rabbits[choice])
+  # game.render(clear_messages=False)
+  # while True:
+  #   if len(domesticatable_rabbits) == 1:
+  #     choice = 0
+  #     break
+  #   line = input(f"Enter a number from 0 to {len(domesticatable_rabbits) -1} to indicate which rabbit you want to domesticate:").strip()
+  #   if not line.isnumeric():
+  #     print(colorize("enter a numeric value", "red"))
+  #     continue
+  #   choice = int(line)
+  #   if not (0 <= choice < len(domesticatable_rabbits)):
+  #     print(colorize("enter a value between 0 and {len(domesticatable_rabbits) -1}", "red"))
+  #     continue
+  #   break
+  domesticatable_rabbits_squares = [r.square_this_is_on for r in domesticatable_rabbits]
+  rabbit_to_domesticate_i = user_choose_square(game, domesticatable_rabbits_squares)
+  rabbit_to_domesticate = domesticatable_rabbits[rabbit_to_domesticate_i]
+  rabbit_to_domesticate.set_team(game.whose_turn)
+  game.living_pieces[game.whose_turn].append(rabbit_to_domesticate)
   # It counts as a move
   game.incorporate_action_and_check_for_end_of_turn("m")
 
@@ -528,7 +537,7 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
       # in classic RCC, only autonomous rabbits moved.
       # But i decided to change this!!
       # if rabbit.team == "autonomous":
-      game.select_square_and_occupant_interactive(rabbit.square_this_is_on)
+      game.select_square_and_occupant(rabbit.square_this_is_on)
       game.animate_render()
       moves = rabbit.get_possible_moves()
       if moves:
@@ -541,19 +550,113 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
     self.messages = []
     return msg
 
+# class Copyme(Card):
+#   text = """"""
+#   can_be_drawn_first_turn = False
+#   def __init__(self, game):
+#     super().__init__(game=game, name="TODO", is_persistent=True)
+# 
+#   def when_leaves_play(self, game):
+#     self.active = False
+# 
+#   def upkeep_action(self, game) -> None:
+#     if game.whose_turn != self.i_was_drawn_on_whose_turn:
+#       return
+
+class Riastrad(Card):
+  text = """Mark one of your pieces. Whenever this piece takes, it enters a battle rage and must take again immediately if possible, where all takes past the first one are chosen at random (choose randomly among all possible takes, with the additional option of stopping the frenzy). It may take friendly pieces. It may not take a King except for as its first take in a turn."""
+  can_be_drawn_first_turn = True
+  def __init__(self, game):
+    super().__init__(game=game, name="Riastrad", is_persistent=True)
+    eligible_pieces = game.board.get_pieces(team=game.whose_turn)
+    eligible_squares = [p.square_this_is_on for p in eligible_pieces]
+    piece_i = user_choose_square(game, eligible_squares)
+    chosen_piece = eligible_pieces[piece_i]
+    self.message = f"{chosen_piece} is marked with the warp spasm! When this piece takes, the warp spasm comes upon it. Its shanks and joints shake like a tree in the flood or a reed in the stream. Its body makes a furious twist inside its skin, so that its feet and shins switch to the rear and his heels and calves switch to the front...There is heard the loud clap of its heart against his breast like the yelp of a howling bloodhound or like a lion going among bears...it sucks one eye so deep into its head that a wild crane couldn't probe it onto its cheek out of the depths of its skull; the other eye falls out along its cheek. The Lon Laith stands out of its forehead, so that it is as long and as thick as a warrior's whetstone. As high, as thick, as strong, as steady, as long as the sail-tree of some huge prime ship is the straight spout of dark blood which arises right on high from the very ridge-pole of its crown."
+    chosen_piece.special_stuff["riastrad"] = True
+    chosen_piece.extra_images["plague"] = Image(from_string=riastrad_img)
+
+  def when_leaves_play(self, game):
+    self.active = False
+    for piece in game.board.get_pieces():
+      if "riastrad" in piece.special_stuff:
+        del piece.special_stuff["riastrad"]
 
 
+  def action_after_piece_moves(self, game, piece_that_moved: piece.Piece, taken_pieces: List[piece.Piece]) -> None:
+    if not taken_pieces: return
+    if "riastrad" not in piece_that_moved.special_stuff: return
+    game.animate_render()
+
+    actual_team_of_the_piece = piece_that_moved.team
+    newly_taken_pieces = []
+    while True:
+      # Get the moves, but first it temporarily changes team (and can therefore take its own team)
+      piece_that_moved.team = "Ulster"
+      moves = piece_that_moved.get_possible_moves()
+      piece_that_moved.team = actual_team_of_the_piece
+
+      moves = [sq for sq in moves.taking if not any([occ.type == "king" for occ in sq.occupants])]
+      if not moves:
+        break
+      moves.append(None) # add a "do not move and break this cycle" option
+      which_move = random.choice(moves)
+      if which_move is None:
+        DEV_PRINT("Rampage has stopped!")
+        break
+      # Select the sqare+occupants just so the viewers can see its location and choice at each time
+      # game.select_square_and_occupant(piece_that_moved.square_this_is_on)
+      # a hack to make sure that the piece that is rampaging is always colored red
+      color_me_red = piece.PieceMoves(square=None, piece=piece_that_moved, taking_moves=[which_move], nontaking_moves=[])
+      game._cur_available_piece_moves = color_me_red
+      newly_taken_pieces += game.move_piece(piece_that_moved, which_move, enforce_whose_turn_it_is=False, do_card_end_actions=False)
+      game.animate_render()
+    if newly_taken_pieces:
+      taken_pieces += newly_taken_pieces
+      taken_pieces_str = ', '.join([str(p) for p in taken_pieces[0:-1]]) + f" and {taken_pieces[-1]}"
+      self.message = f"When the wasp spasm had cleared, {piece_that_moved} looked around it at the slain, counting among their number {taken_pieces_str}"
+    else:
+      self.message = f"{piece_that_moved} was feeling very chill today and did not enter the warp spasm"
+
+
+
+class AKingIsForGlory(Card):
+  text = """Starting this turn, if either player’s King takes two of their opponent’s pieces, that player wins the game."""
+  can_be_drawn_first_turn = True
+  def __init__(self, game):
+    super().__init__(game=game, name="A King is for Glory, not for Long Life", is_persistent=True)
+    self.king_takes_per_team = {}
+
+  def when_leaves_play(self, game):
+    self.active = False
+
+  def action_after_piece_moves(self, game, piece_that_moved: piece.Piece, taken_pieces: List[piece.Piece]) -> None:
+    if piece_that_moved.type != "king" or not  taken_pieces: return
+    if piece_that_moved.team not in self.king_takes_per_team:
+      self.king_takes_per_team[piece_that_moved.team] = 0
+    self.king_takes_per_team[piece_that_moved.team] += 1
+    self.message = f"Wae thee, for {piece_that_moved} has taken {taken_pieces}!!!"
+    if self.king_takes_per_team[piece_that_moved.team] >= 2:
+      game.king_deaths[piece_that_moved.team] += 1
+      self.message += "  Being as that is the second such noble take, the game is hereby ended."
+
+
+
+
+# the keys here are short names that are used largely for debugging when the user draws a specific card.
 ALL_CARDS = {
-    "Zamboni": ZamboniCard,
-    "Landslide": Landslide,
-    "BackToTheBasics": BackToTheBasics,
-    "FlippedClassroom": FlippedClassroom,
-    "EpiscopiVagantes": EpiscopiVagantes,
-    "Crisis": IdentityCrisis,
-    "Coyote": Coyote,
-    "Plague": Plague,
-    "Tesseract": Tesseract,
-    "Rabbit": Rabbit,
+    "zamboni": ZamboniCard,
+    "landslide": Landslide,
+    "basics": BackToTheBasics,
+    "flipped": FlippedClassroom,
+    "episcopi": EpiscopiVagantes,
+    "crisis": IdentityCrisis,
+    "coyote": Coyote,
+    "plague": Plague,
+    "tesseract": Tesseract,
+    "rabbit": Rabbit,
+    "riastrad": Riastrad,
+    "glory": AKingIsForGlory,
 }
 
-TEST_DECK = [Rabbit, Plague, Coyote, Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [AKingIsForGlory, Riastrad, Rabbit, Plague, Coyote, Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

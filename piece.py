@@ -15,6 +15,7 @@ class PieceMoves():
     3. initialize empty object with (square is None and piece is None)
 
   It stores what moves a given Piece can make. The actual logic for finding the takable moves happens in the piece's get_possible_moves function/
+  TODO wtf the parameter "square" is not used
   """
   def __init__(self, square, piece, all_moves=None, taking_moves=None, nontaking_moves=None):
     if square is None and piece is None:
@@ -23,8 +24,8 @@ class PieceMoves():
     elif all_moves is not None:
       if (taking_moves is not None) or (nontaking_moves is not None):
         raise ValueError("If all_moves is specified, neither of taking_moves or nontaking_moves can be")
-      self.taking    =    [square for square in all_moves if square.takable_occupants(piece)]
-      self.nontaking = [square for square in all_moves if not square.takable_occupants(piece)]
+      self.taking    =    [sq for sq in all_moves if sq.takable_occupants(piece)]
+      self.nontaking = [sq for sq in all_moves if not sq.takable_occupants(piece)]
     else:
       if (taking_moves is None) or (nontaking_moves is None):
         raise ValueError("If all_moves is not specified, both of taking_moves and nontaking_moves must be")
@@ -142,7 +143,10 @@ class Piece():
 
   def __repr__(self):
     square_repr = self.square_this_is_on.name if self.square_this_is_on else "None"
-    return f"{self.name}({square_repr})" # f"{self.name} ({self.team}'s {self.type})"
+    if self.alive:
+      return f"{self.name}({square_repr})" # f"{self.name} ({self.team}'s {self.type})"
+    else:
+      return f"{self.name}(✝)" # f"{self.name} ({self.team}'s {self.type})"
     # return self.name # f"{self.name} ({self.team}'s {self.type})"
   def __str__(self):
     return self.__repr__()

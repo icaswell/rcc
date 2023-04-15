@@ -165,19 +165,28 @@ class Game():
       return (len(m)//messages_img_width + 1)
     self.messages_this_turn = [f"{m}" for m in self.messages_this_turn]
     n_message_lines = sum([height_of_message(m) for m in self.messages_this_turn])
-    messages_img = Image(height=max(4, n_message_lines), width=messages_img_width)
-    row_i = 0
-    for msg in self.messages_this_turn:
+    # TODO the +2 is a horrible hack to try to compensate for image wrapping
+    # it wil fail in some situations
+    messages_img = Image(height=max(4, n_message_lines) + 2, width=messages_img_width)
+
+    top_delineator = "-"*(messages_img_width - 5)
+    messages_img.print_in_string_nicely(top_delineator, location=(0,0))
+
+    row_i = 1
+    rand_colors = "underline flashing red green yellow blue pink teal grey".split()
+    random.shuffle(rand_colors)
+    for msg_i, msg in enumerate(self.messages_this_turn):
       if not msg: continue
-      messages_img.print_in_string(msg, location=(row_i, 0))
-      row_i += height_of_message(msg)
+      color = rand_colors[msg_i%len(rand_colors)]
+      printed_height = messages_img.print_in_string_nicely(msg, location=(row_i, 1), color=color)
+      row_i += printed_height
 
     # Delete all messages from this turn
     if clear_messages:
       self.messages_this_turn = []
     return messages_img
 
-  def animate_render(self, n_secs_pre_wait:int=0.1, n_secs_post_wait:int=0.2):
+  def animate_render(self, n_secs_pre_wait:int=0.2, n_secs_post_wait:int=0.3):
     """A wrapper for self.render() that waits for a bit before and after. Mainly for animating happenings during the upkeep."""
     if not n_secs_pre_wait and not n_secs_post_wait: return
     time.sleep(n_secs_pre_wait)
@@ -255,25 +264,36 @@ class Game():
     if piece in piece.square_this_is_on.occupants:
       piece.square_this_is_on.remove_occupant(piece)
 
-  def move_piece(self, piece, end_square, enforce_whose_turn_it_is = True, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=False):
+  def move_piece(self, moving_piece, end_square, enforce_whose_turn_it_is = True, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=False, do_card_end_actions=True) -> List[Piece]:
     """Note: this method moves the piece and updates living and dead pieces.
     It does NOT call the turn_end method.
 
     If enforce_whose_turn_it_is, this raises an error if aomeone tries to move another's piece.
     Autonomous pieces will need to avoid this.
+
+    Args:
+      moving_piece
+      end_square
+      enforce_whose_turn_it_is = True
+      this_was_a_human_making_this_move_and_thus_using_their_move_allowance=False
+      do_card_end_actions: set to false if this is a card making this move
     """
     if DEV_MODE:
       enforce_whose_turn_it_is = False
-    DEV_PRINT(f"moving {piece} from {piece.square_this_is_on} to {end_square}, {self.whose_turn}'s turn")
-    if enforce_whose_turn_it_is and piece.team != self.whose_turn:
-      raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {piece.team}!") 
-    dead_pieces = self.board.move_piece(piece, end_square)
+    DEV_PRINT(f"moving {moving_piece} from {moving_piece.square_this_is_on} to {end_square}, {self.whose_turn}'s turn")
+    if enforce_whose_turn_it_is and moving_piece.team != self.whose_turn:
+      raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {moving_piece.team}!") 
+    dead_pieces = self.board.move_piece(moving_piece, end_square)
     for dead_piece in dead_pieces:
-      self.command_history.append(f"# move: {piece.name} took {dead_piece.name}")
+      self.command_history.append(f"# move: {moving_piece.name} took {dead_piece.name}")
       self.mark_piece_as_dead_and_remove_from_board(dead_piece)
+    if do_card_end_actions:
+      for card in self.active_cards:
+        card.action_after_piece_moves(self, moving_piece, dead_pieces)
     if this_was_a_human_making_this_move_and_thus_using_their_move_allowance:
       self.incorporate_action_and_check_for_end_of_turn("m")
     DEV_PRINT(f"moved!")
+    return dead_pieces
 
   def move_selected_piece(self, selected_move_id):
     if not self.selected_pieces:
@@ -313,10 +333,9 @@ class Game():
     square_names = ', '.join([piece_i.square_this_is_on.name for piece_i in self.selected_pieces])
     self.messages_this_turn.append(f"Selected piece: {piece_names} on square {square_names}")
 
-  def select_square_and_occupant_interactive(self, square_name:str) -> None:
+  def select_square_and_occupant(self, square_name:str) -> None:
     """TODO: can only select one square at a time
     Note: dehighlighting is happening in update_selected_square
-    The reason this method is called "interactive" is that if you select and there are multiple pieces on the square, it will prompt you to choose.
     """
     square = self.board.square_from_a1_coordinates(square_name)
     DEV_PRINT(f">>> Selecting {square}")
@@ -346,7 +365,7 @@ class Game():
     path = [direction]
     if args: path *= int(args[0])
     new_selected_square = self.selected_square.get_square_from_directions(piece=None, directions=path, stop_at_end_of_board=True)
-    self.select_square_and_occupant_interactive(new_selected_square)
+    self.select_square_and_occupant(new_selected_square)
 
   def move_top_piece(self, start_square, end_square):
     """For debugging/testing."""

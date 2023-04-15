@@ -14,6 +14,8 @@ from name_registry import register_name, register_unique_name, random_string
 # 
 # You can find a table with all of these values here: http://bitmote.com/index.php?post/2012/11/19/Using-ANSI-Color-Codes-to-Colorize-Your-Bash-Prompt-on-Linux#256%20(8-bit)%20Colors
 
+
+
 COLORS = {
     "underline": 4,
     "flashing": 5,
@@ -189,16 +191,44 @@ class Image():
     self.print_debug()
 
   def set_pixel(self, row_i:int, col_j:int, pixel_val:str, layer_i:int=-1, color:str=None) -> None:
+    if layer_i >= len(self.layers):
+      raise ValueError(f"Cannot set layer {layer_i} in image with {len(self.layers)} layers")
+    if row_i >= len(self.layers[layer_i]):
+      raise ValueError(f"Cannot set row {row_i} in image with {len(self.layers[layer_i])} rows")
+    if col_j >= len(self.layers[layer_i][row_i]):
+      raise ValueError(f"Cannot set col {col_j} in image with {len(self.layers[layer_i][row_i])} cols")
     self.layers[layer_i][row_i][col_j].set_value(pixel_val)
     self.layers[layer_i][row_i][col_j].set_color(color)
+
+  def print_in_string_nicely(self, s:str, location:Tuple[int, int], color:str=None, border_width:int=1) -> None:
+    """like print_in_string, but breaks on whitespace and can only use tuple for location.
+
+      TODO: handle newlines
+      border_width: don't go the the very edge of the image, go within this many pixels of it.
+    """
+    message_parts = s.split()
+
+    row_i, col_j = location
+    max_width = self.width - border_width
+    for word in s.split():
+      if col_j + len(word) + 1 > max_width:
+        row_i += 1
+        col_j = border_width
+      if row_i >= self.height: break
+      for c in (word + " "):
+        # print(f"  ({row_i}, {col_j}): {c}")
+        self.set_pixel(row_i=row_i, col_j=col_j, pixel_val=c, color=color)
+        col_j += 1
+    return row_i - location[0] + 1
+     
+
 
   def print_in_string(self, s:str, location:Union[str,Tuple[int, int]]="lower_right", color:str=None) -> None:
     """Make a new transparent layer and print a string on it.
     Args:
+      s: the string to print in
       location:
       color:
-      color:
-      border_width: don't go the the very edge of the image, go within this many pixels of it.
     """
     n_rows_this_message_will_span = len(s) // self.width
     n_cols_in_last_row = len(s) % self.width
@@ -234,6 +264,7 @@ class Image():
       if row_i >= self.height or col_j >= self.width:
         break
       self.set_pixel(row_i=row_i, col_j=col_j, pixel_val=c, color=color)
+
 
   def expand_canvas(self, new_height: int, new_width: int) -> None:
     if new_height < self.height and new_width < self.width:

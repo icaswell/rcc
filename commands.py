@@ -40,6 +40,26 @@ $ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2
         """)
 
 
+def user_choose_square(game, square_list:List) -> int:
+  for i, square in enumerate(square_list):
+    game.board.annotate_square(square, annotation = str(i))
+  game.render(clear_messages=False)
+  choice = None
+  while True:
+    if len(square_list) == 1:
+      choice = 0
+      break
+    line = input(colorize(f"Enter a number from 0 to {len(square_list) -1} to indicate which square to choose: ", color="teal_highlight")).strip()
+    if not line.isnumeric():
+      print(colorize("enter a numeric value", "red"))
+      continue
+    choice = int(line)
+    if not (0 <= choice < len(square_list)):
+      print(colorize(f"enter a value between 0 and {len(square_list) -1}", "red"))
+      continue
+    break
+  return choice
+
 
 def parse_command(line):
   parts = line.strip().split()
@@ -76,6 +96,7 @@ def parse_command(line):
     raise ValueError(f"unrecognized command '{line}'. Please try again.")
   return cmd, args, kwargs
 
+
 def command_v(game, args, kwargs, display):
   pass # view
 def command_q(game, args, kwargs, display):
@@ -89,7 +110,7 @@ def command_g(game, args, kwargs, display):
   assert len(args) ==  1 and len(args[0]) == 2
   square_name = args[0]
   game.board.dehighlight_all()
-  game.select_square_and_occupant_interactive(square_name)
+  game.select_square_and_occupant(square_name)
 def command_move_cursor(game, args, kwargs, display):
   game.move_square_selection(args[0], args[1:])
 def command_gg(game, args, kwargs, display):
