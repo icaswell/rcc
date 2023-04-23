@@ -21,6 +21,38 @@
 # ♔ ♕ ♖ ♗ ♘ ♙ ♚ ♛ ♜ ♝ ♞ 
 
 
+necromancer_b_8p =(
+"       ▗ ▖      \n"
+" ⫷💀\u200b⫸  ▜◙▛      \n"
+"   ▍    ◙       \n"
+"   ▍  ███       \n"
+"   ▍  █☠█▙      \n"
+"   ▍  █⏬\u200b█      \n"
+"    ▃▄█⏬\u200b█▄▃    \n"
+"    ▀▀▀▀▀▀▀▀    ")
+
+
+necromancer_w_8p =(
+"                \n"
+"  ⟁   /\/\      \n"
+" ⫷⛋⫸  \  /      \n"
+"  ┃▍  (💀\u200b)      \n"
+"  ┃◤══╡\/╞══    \n"
+"  ┃   │\/│      \n"
+"  ┃   ╯\/╰      \n"
+"     ⟅____⟆     ")
+
+
+
+undead_marker_img =(
+"                \n"
+"                \n"
+"       💀\u200b       \n"
+"                \n"
+"                \n"
+"                \n"
+"                \n"
+"                ")
 
 riastrad_img =(
 "                \n"
@@ -608,18 +640,18 @@ white_rabbit = (
 "\_|    )_-\ \_-`\n"
 "   `-----` `--` ")
 
+# for Harimtu
+#     |||||      ||||    ||||     |||||   
+#    ||. .||    ||| .   ||| .    |||||||  
+#   |||\=/|||   ||| _'  ||| _'  ||||||||| 
+#   |.-- --.|   ||-.    ||-.    ||||||||| 
+#   /(.) (.)\   |// )   ||\\)   /|||||||\ 
+#   \ ) . ( /   |\\ (   || \\   \ )|||( / 
+#   '(  v  )`    (' )    (  ``  '(  Y  )` 
+#     \ | /       \ |     \ |     \"|"/   
+# VK  ( | )       ( |     ( |     ( | )   
+#     '- -`       '--`    '--`    '- -`
 
-
-
-OTHER_PIECES = {
-        "zamboni": zamboni,
-        "swapper": swapper,
-        "coyote": coyote,
-        "espresso": espresso_8p,
-        "white_rabbit": white_rabbit,
-        "black_rabbit": black_rabbit,
-        "autonomous_rabbit": autonomous_rabbit,
-        }
 
 PLAGUE_STAGES = {
         0 : plague_stage_0,
@@ -629,11 +661,23 @@ PLAGUE_STAGES = {
         4 : plague_stage_4,
         }
 
-STANDARD_PIECES = {
+IMAGE_STRINGS = {
+        # monocolor
+        "zamboni": zamboni,
+        "swapper": swapper,
+        "coyote": coyote,
+        "espresso": espresso_8p,
+        "autonomous_rabbit": autonomous_rabbit,
+
+        # bicolor
         "pawn": {"White": pawn_w_8p, "Black": pawn_b_8p},
         "knight": {"White": knight_w_8p, "Black": knight_b_8p},
         "bishop": {"White": bishop_w_8p, "Black": bishop_b_8p},
         "rook": {"White": rook_w_8p, "Black": rook_b_8p},
         "queen": {"White": queen_w_8p, "Black": queen_b_8p},
         "king": {"White": king_w_8p, "Black": king_b_8p},
+        "necromancer": {"White": necromancer_w_8p, "Black": necromancer_b_8p},
+
+        # tricolor
+        "rabbit": {"White": white_rabbit, "Black": black_rabbit, "Autonomous": autonomous_rabbit},
 }

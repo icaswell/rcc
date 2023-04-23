@@ -3,7 +3,8 @@ from typing import List
 
 from graphics import Image
 from name_registry import register_name
-from piece import Piece, PieceMoves
+import piece
+
 
 from constants import *
 
@@ -12,7 +13,7 @@ class Square():
   def __init__(self, height:int, width:int, color:str, name:str) -> None:
     self.base_img = Image(height=height, width=width, color="transparent", name=name + "_img")
     self.neighbors = {}  # a dict of direction name to Square object, e.g. {"nw": square_xxx}
-    self.occupants = []  # list of Pieces
+    self.occupants = []  # list of piece.Pieces
     self.color = color
     self.name = name
     register_name(self.name)
@@ -52,16 +53,17 @@ class Square():
   def set_color(self, color: str) -> None:
     self.color = color
 
-  def add_occupant(self, piece:Piece) -> None:
-    if not hasattr(piece, "img"):
+  def add_occupant(self, new_piece:piece.Piece) -> None:
+    if not hasattr(new_piece, "img"):
       raise ValueError("Occupants must be renderable")
-    self.occupants.append(piece)
-    piece.square_this_is_on = self
+    self.occupants.append(new_piece)
+    new_piece.square_this_is_on = self
 
-  def remove_occupant(self, piece:Piece) -> Piece:
-    if not  self.occupants:
+  def remove_occupant(self, removed_piece:piece.Piece) -> piece.Piece:
+    if not self.occupants:
       raise ValueError(f"Square {self.name} does not have any occupants!")
-    piece_name = piece.name if isinstance(piece, Piece) else piece
+    piece_name = removed_piece.name if isinstance(removed_piece, piece.Piece) else removed_piece
+    # this rigamarole instead of just occupants.remove is ebcasuse we are handling string inputs as well
     piece_idx = -1
     for i, occupant in enumerate(self.occupants):
       if occupant.name == piece_name:
@@ -74,12 +76,12 @@ class Square():
     DEV_PRINT(f"----removed {popped_piece.name} from {self.name}")
     return popped_piece
 
-  def transfer_piece_here(self, piece:Piece) -> Piece:
-    if piece in self.occupants:
+  def transfer_piece_here(self, new_piece:piece.Piece) -> piece.Piece:
+    if new_piece in self.occupants:
       raise ValueError(f"OOPS! {piece} already on {self}")
-    old_square = piece.square_this_is_on
-    old_square.remove_occupant(piece)
-    self.add_occupant(piece)
+    old_square = new_piece.square_this_is_on
+    old_square.remove_occupant(new_piece)
+    self.add_occupant(new_piece)
 
   def add_debug_layer(self) -> None:
     debug_string = f"{self.name.replace('square_', 's')}:"
@@ -89,30 +91,30 @@ class Square():
       debug_string += f"occ:{occupant.name}; "
     self.base_img.print_in_string(debug_string)
 
-  def takable_occupants(self, piece:Piece) -> list:
+  def takable_occupants(self, moving_piece:piece.Piece) -> list:
     """Returns list of the occupants that can be taken by piece.
     """
-    return  [occ for occ in self.occupants if occ.can_be_taken_by(piece)]
+    return  [occ for occ in self.occupants if occ.can_be_taken_by(moving_piece)]
 
-  def untakable_occupants(self, piece:Piece) -> list:
+  def untakable_occupants(self, moving_piece:piece.Piece) -> list:
     """Returns list of the occupants that cannot be taken by piece.
     """
-    return  [occ for occ in self.occupants if not occ.can_be_taken_by(piece)]
+    return  [occ for occ in self.occupants if not occ.can_be_taken_by(moving_piece)]
 
-  def relative_tangibility(self, piece:Piece) -> str:
+  def relative_tangibility(self, moving_piece:piece.Piece) -> str:
     """How can this square be moved through by this piece?
     In classic chess, this is synonymous with whether it has an occupant.
     In RCC, there are pieces and objects that can be moved through.
     returns: enum in ["intangible", "unpassthroughable", "unpassintoable"]
     """
-    tangibilities = {occ.tangibility_wrt_incomer(piece) for occ in self.occupants}
+    tangibilities = {occ.tangibility_wrt_incomer(moving_piece) for occ in self.occupants}
     if "unpassintoable" in tangibilities: return "unpassintoable"
     if "unpassthroughable" in tangibilities: return "unpassthroughable"
     return "intangible"
     # TODO make these constants
 
 
-  def get_squares_in_ray(self, direction: str, moving_piece: Piece, only_nontaking:str=False) -> list:
+  def get_squares_in_ray(self, direction: str, moving_piece: piece.Piece, only_nontaking:str=False) -> list:
     """E.g. get all the squares that a bishop could reach in one direction.
     Include the last square, aka the piece that will be taken.
 
@@ -136,16 +138,16 @@ class Square():
       if ctr >= 10: raise ValueError("Your board is bigger than 10 squares??")
     return reachable_squares
 
-  def get_orthogonal_squares(self, moving_piece: Piece) -> list:
+  def get_orthogonal_squares(self, moving_piece: piece.Piece) -> list:
     return self.get_squares_from_directions_list(piece=moving_piece, directions_list=[["n"], ["e"], ["s"], ["w"]])
 
-  def get_orthogonal_rays(self, moving_piece: Piece) -> list:
+  def get_orthogonal_rays(self, moving_piece: piece.Piece) -> list:
     return [square for direction in ["n", "e", "s", "w"] for square in self.get_squares_in_ray(direction, moving_piece)]
 
-  def get_diagonal_rays(self, moving_piece: Piece) -> list:
+  def get_diagonal_rays(self, moving_piece: piece.Piece) -> list:
     return [square for direction in ["ne", "se", "sw", "nw"] for square in self.get_squares_in_ray(direction, moving_piece)]
 
-  def get_squares_from_directions_list(self, piece:Piece, directions_list: list, mode:str="normal") -> list:
+  def get_squares_from_directions_list(self, moving_piece:piece.Piece, directions_list: list, mode:str="normal") -> list:
     if mode not in MODES_OF_MOVEMENT:
       raise ValueError(f"mode {mode} is not supported; only {MODES_OF_MOVEMENT} are available.")
     if not isinstance(directions_list, list) or not directions_list:
@@ -154,13 +156,13 @@ class Square():
       raise ValueError("get_squares_from_directions_list needs a nonempty list, like [['n'], ['s']]")
     reachable_squares = []
     for directions_i in directions_list:
-      reachable_square = self.get_square_from_directions(piece, directions_i, mode)
+      reachable_square = self.get_square_from_directions(moving_piece, directions_i, mode)
       if reachable_square:
         reachable_squares.append(reachable_square)
     return reachable_squares
 
 
-  def get_square_from_directions(self, piece:Piece, directions:list, mode="normal", stop_at_end_of_board=False) -> Square:
+  def get_square_from_directions(self, moving_piece:piece.Piece, directions:list, mode="normal", stop_at_end_of_board=False) -> Square:
     """Returns the final square you reach, or None if you can't reach a square given those directions.
     returns None if none exists
 
@@ -182,7 +184,7 @@ class Square():
       if next_square is None:
         return cur_square if stop_at_end_of_board else None
       cur_square = next_square
-      cur_square_tangibility = cur_square.relative_tangibility(piece) if piece else "transparent"
+      cur_square_tangibility = cur_square.relative_tangibility(moving_piece) if moving_piece else "transparent"
       if cur_square_tangibility == "unpassintoable":
         # unpassintoable: e.g. what happens if this square has a piece on your same team?
         if mode == "normal":
@@ -200,6 +202,11 @@ class Square():
         else:
           raise ValueError("wtf?")
     return cur_square
+
+  def is_adjacent_to(self, other_sq:Square):
+    if isinstance(other_sq, piece.Piece): other_sq = other_sq.square_this_is_on
+    # Assumes that this is a symmetric operation
+    return other_sq in self.neighbors.values()
 
   def get_adjacent_occupants(self):
     return [occ for square in self.neighbors.values() for occ in square.occupants]
@@ -219,7 +226,7 @@ class Square():
 
 class Board():
   def __init__(self, game_config:dict) -> None:
-     # self.piece_map = {} # map of piece name to Piece
+     # self.piece_map = {} # map of piece name to piece.Piece
      self.square_map = {} # map of square name to Square
      self.board_grid = [] # list of lists of the same Squares
      # self.selected_squares = {}  # set of squares that are "selected"...use  unclear.
@@ -333,16 +340,16 @@ class Board():
     square = self.square_from_a1_coordinates(square)
     return square.get_occupants()
 
-  def can_take_from_here(self, square:Square, piece:Piece) -> bool:
+  def can_take_from_here(self, square:Square, moving_piece:piece.Piece) -> bool:
     """can piece make any taking move fromthis square?
     """
-    true_square = piece.square_this_is_on
-    piece.square_this_is_on = square # put it here temporarily to see where it can go
-    moves_if_it_were_here = piece.get_possible_moves()
-    piece.square_this_is_on = true_square # put it back on its true square
+    true_square = moving_piece.square_this_is_on
+    moving_piece.square_this_is_on = square # put it here temporarily to see where it can go
+    moves_if_it_were_here = moving_piece.get_possible_moves()
+    moving_piece.square_this_is_on = true_square # put it back on its true square
     return len(moves_if_it_were_here.taking) != 0
 
-  def get_random_square(self, must_be_unoccupied:bool=False, piece_that_cannot_take_from_here:Piece=None) -> Square:
+  def get_random_square(self, must_be_unoccupied:bool=False, piece_that_cannot_take_from_here:piece.Piece=None) -> Square:
     """
     Args:
       piece_that_cannot_take_from_here: if not None, don't select any square that would allow this piece to take.
@@ -361,16 +368,17 @@ class Board():
     # col_j = random.randint(0, self.board_width - 1)
     # return self.board_grid[row_i][col_j]
 
-  def get_pieces(self, types:List[str]=None, team:str=None, reverse_rows:bool=False) -> List[Piece]:
+  def get_pieces(self, types:List[str]=None, team:str=None, adjacent_to:Square=None, reverse_rows:bool=False) -> List[piece.Piece]:
     if types and any(c.isupper() for c in "".join(types)):  # canot wait to replace this with enum!
       raise ValueError(f"piece types are always lowercase; got {types}")
     if team and team.islower():
       raise ValueError(f"Team names are always uppercase; got {team}")
     ret = []
 
-    def selection_fn(occ:Piece) -> bool:
+    def selection_fn(occ:piece.Piece) -> bool:
       if types and occ.type not in types: return False
       if team and occ.team != team: return False
+      if adjacent_to and not occ.square_this_is_on.is_adjacent_to(adjacent_to): return False
       return True
 
     rows = self.board_grid
@@ -381,6 +389,16 @@ class Board():
       for square in row:
         ret += [occ for occ in square.occupants if selection_fn(occ)]
     return ret
+
+
+  def get_squares(self, rows:List[int], unoccupied:bool=False):
+    candidates = []
+    for row_i, row in enumerate(self.board_grid):
+      if row_i not in rows: continue
+      for col_j, sq in enumerate(row):
+        if unoccupied and sq.occupants: continue
+        candidates.append(sq)
+    return candidates
 
 
   def render(self) -> None:
@@ -426,17 +444,17 @@ class Board():
     """
     return self.move_piece(self.get_pieces_on_square(start_square)[0], end_square)
 
-  def move_piece(self, piece:Piece, end_square:Square) -> list:
-    if piece.interaction_type == InteractionType.SWAPPING or any([occ.interaction_type == InteractionType.SWAPPING for occ in end_square.occupants]):
-      return self.swap_pieces(piece, end_square)  
-    elif piece.interaction_type == InteractionType.TAKING: 
-      return self.move_piece_proper(piece, end_square)
-    elif piece.interaction_type == InteractionType.PUSHING:
-      return self.push_from_piece(piece, end_square)
+  def move_piece(self, moving_piece:piece.Piece, end_square:Square) -> list:
+    if moving_piece.interaction_type == InteractionType.SWAPPING or any([occ.interaction_type == InteractionType.SWAPPING for occ in end_square.occupants]):
+      return self.swap_pieces(moving_piece, end_square)  
+    elif moving_piece.interaction_type == InteractionType.TAKING: 
+      return self.move_piece_proper(moving_piece, end_square)
+    elif moving_piece.interaction_type == InteractionType.PUSHING:
+      return self.push_from_piece(moving_piece, end_square)
     else:
       assert False
 
-  def move_piece_proper(self, piece:Piece, end_square:Square) -> list:
+  def move_piece_proper(self, moving_piece:piece.Piece, end_square:Square) -> list:
     """Returns a list of dead pieces after this move.
     This does NOT ensure that the piece actually CAN move to this square!
     That is the responsibility of the caller.
@@ -444,15 +462,15 @@ class Board():
     possible future TODO: option of what to do with the pieces it lands on (maybe not kill them?)
     """
     assert end_square is not None
-    start_square = piece.square_this_is_on
+    start_square = moving_piece.square_this_is_on
     end_square = self.square_from_a1_coordinates(end_square)
-    if piece not in start_square.occupants:  # TODO should probably be a contains() method 
-      raise ValueError(f"Piece '{piece.name}' is not on square '{start_square.name}'")
+    if moving_piece not in start_square.occupants:  # TODO should probably be a contains() method 
+      raise ValueError(f"piece.Piece '{piece.name}' is not on square '{start_square.name}'")
     # TODO raise all sorts of errors if it can't go to the target square, or if either square doesn't exist, etc.
 
     #=========================================================
     # The piece leaves its start square....
-    piece.action_when_vacates(start_square) # activate anything that the piece does when it leaves a square (usually nothing)
+    moving_piece.action_when_vacates(start_square) # activate anything that the piece does when it leaves a square (usually nothing)
     # start_square.action_when_vacated(piece)
 
     # Handle taking. (etherization is different.)
@@ -462,11 +480,11 @@ class Board():
     # for dead_piece in pieces_landed_on:
     #     end_square.occupants.remove(dead_piece)
 
-    end_square.transfer_piece_here(piece)
+    end_square.transfer_piece_here(moving_piece)
 
     #=========================================================
     # And lands on the next square.
-    piece.action_when_lands_on(end_square) # activate anything that the piece does when it lands on a square (usually nothing)
+    moving_piece.action_when_lands_on(end_square) # activate anything that the piece does when it lands on a square (usually nothing)
 
     #=========================================================
     # some checks to make sure we have programmed this right...
@@ -476,7 +494,7 @@ class Board():
     for occupant in end_square.occupants:
       if occupant.square_this_is_on != end_square:
         raise ValueError(f"Square {end_square.name} has {occupant.name} as an occupant, but that occupant has its current square as {occupant.square_this_is_on.name if occupant.square_this_is_on else 'None'}.")
-    assert piece.square_this_is_on is not None
+    assert moving_piece.square_this_is_on is not None
     return pieces_landed_on
 
 
@@ -497,20 +515,20 @@ class Board():
     raise ValueError("Squares {square_a} and {square_b} are not neighbors")
 
 
-  def push_from_piece(self, piece:Piece, landing_square:Square) -> List[Piece]:
-    direction = self.direction_between_neighbor_squares(piece.square_this_is_on, landing_square)
+  def push_from_piece(self, pushing_piece:piece.Piece, landing_square:Square) -> List[piece.Piece]:
+    direction = self.direction_between_neighbor_squares(pushing_piece.square_this_is_on, landing_square)
     taken_pieces = self.push(landing_square, direction)
-    self.move_piece_proper(piece, landing_square)
+    self.move_piece_proper(pushing_piece, landing_square)
     return taken_pieces
 
-  def swap_pieces(self, piece: Piece, landing_square: Square) -> List[Piece]:
+  def swap_pieces(self, swapping_piece: piece.Piece, landing_square: Square) -> List[piece.Piece]:
     # First add all the occupants of the landing square onto piece's square,
     # then move piece to the landing square.
     for occ in landing_square.occupants:
-      piece.square_this_is_on.transfer_piece_here(occ)
-    return self.move_piece_proper(piece, landing_square)        
+      swapping_piece.square_this_is_on.transfer_piece_here(occ)
+    return self.move_piece_proper(swapping_piece, landing_square)        
 
-  def push(self, first_pushed_square, direction) -> List[Piece]:
+  def push(self, first_pushed_square, direction) -> List[piece.Piece]:
     """
     # push all pieces in some direction, activating the relevant on/off actions if needed
     returns taken pieces
@@ -551,6 +569,9 @@ class Board():
     """TODO: "highlights" and "annotations" should be more unified in name, because they are the same sort of thing.
     """
     self.highlighted_squares = {}
+    self.deannotate_all()
+
+  def deannotate_all(self) -> None:
     for square_name in self.square_annotations:
       self.square_annotations[square_name] = []
 
@@ -573,7 +594,7 @@ class Board():
       raise ValueError(f"Square {a1_coord} (row={row_idx}, col={col_idx}) is impossible bruh")
     return self.board_grid[row_idx][col_idx]
 
-  def get_piece_moves_from_square(self, square:Square) -> PieceMoves:
+  def get_piece_moves_from_square(self, square:Square) -> piece.PieceMoves:
     square = self.square_from_a1_coordinates(square)
     if not square.occupants: return
     if len(square.occupants) > 1:
@@ -591,7 +612,7 @@ class Board():
       return
     del self.highlighted_squares[square.name]
 
-  # def get_piece_moves(self, piece:Piece) -> PieceMoves:
+  # def get_piece_moves(self, piece:piece.Piece) -> piece.PieceMoves:
   #     if not piece:
   #         raise ValueError("Empty piece given as input")
   #     # self.dehighlight_all()
@@ -605,9 +626,9 @@ class Board():
   #     #     self.square_annotations[square.name].append(move_id)
   #     return piece_moves
 
-  def add_new_piece(self, piece:Piece, row:int, col:int) -> None:
-    piece.action_when_lands_on(self.board_grid[row][col])
-    self.board_grid[row][col].add_occupant(piece)
+  def add_new_piece(self, new_piece:piece.Piece, row:int, col:int) -> None:
+    new_piece.action_when_lands_on(self.board_grid[row][col])
+    self.board_grid[row][col].add_occupant(new_piece)
     # self.piece_map[piece.name] = piece
 
   def add_piece_to_square(self, square_name:str, piece_name:str) -> None:

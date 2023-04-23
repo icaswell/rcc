@@ -40,22 +40,31 @@ $ command arg1 arg2 keyword_arg1=X keyword_arg2=Y -option1 -option2
         """)
 
 
-def user_choose_square(game, square_list:List) -> int:
+def user_choose_square(game, square_list:List, message:str=None) -> int:
+  # game.deselect_all()
   for i, square in enumerate(square_list):
     game.board.annotate_square(square, annotation = str(i))
   game.render(clear_messages=False)
+  return user_choose_list_item(square_list, message=message)
+
+def user_choose_list_item(option_list:List, print_options:bool=False, message:str=None) -> int:
+  if message:
+    print(colorize(message, "teal_highlight"))
+  if print_options:
+    option_str = ';'.join([f'{i}. {item}' for i, item in enumerate(option_list)])
+    print(colorize(f"Your options are: {option_str}", "teal_highlight"))
   choice = None
   while True:
-    if len(square_list) == 1:
+    if len(option_list) == 1:
       choice = 0
       break
-    line = input(colorize(f"Enter a number from 0 to {len(square_list) -1} to indicate which square to choose: ", color="teal_highlight")).strip()
+    line = input(colorize(f"Enter a number from 0 to {len(option_list) -1} to indicate which option to choose: ", color="teal_highlight")).strip()
     if not line.isnumeric():
       print(colorize("enter a numeric value", "red"))
       continue
     choice = int(line)
-    if not (0 <= choice < len(square_list)):
-      print(colorize(f"enter a value between 0 and {len(square_list) -1}", "red"))
+    if not (0 <= choice < len(option_list)):
+      print(colorize(f"enter a value between 0 and {len(option_list) -1}", "red"))
       continue
     break
   return choice
@@ -234,7 +243,7 @@ def execute_commands(game, cmd_history: List[str], display:bool=False) -> None:
 
 def select_random_move(game, take_prob):
   movable_pieces_to_moves = []
-  for piece in game.living_pieces[game.whose_turn]:
+  for piece in game.living_pieces[game.whose_turn.team]:
     moves = piece.get_possible_moves()
     if moves.taking or moves.nontaking:
       movable_pieces_to_moves.append((piece, moves))

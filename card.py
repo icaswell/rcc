@@ -1,11 +1,11 @@
 import random
-from graphics import Image
+from graphics import Image, colorize
 import piece
 import board
 from piece import ALL_MOVING_STYLES
-from asset_library import PLAGUE_STAGES, riastrad_img
+import asset_library as assets
 from constants import *
-from commands import COMMAND_ACTIONS, user_choose_square
+from commands import COMMAND_ACTIONS, user_choose_square, user_choose_list_item
 from name_registry import get_unique_name
 from typing import List
 
@@ -101,7 +101,7 @@ If it ever reaches the end of the spiral, it exits the board and leaves play.
     if game.whose_turn != self.i_was_drawn_on_whose_turn:
       return
     cur_square = self.zamboni.square_this_is_on
-    next_square = cur_square.get_square_from_directions(piece=self.zamboni, directions=[self.orientation])
+    next_square = cur_square.get_square_from_directions(moving_piece=self.zamboni, directions=[self.orientation])
 
     if DEV_MODE:
       print(f"moving from {cur_square.name} to {next_square.name}")
@@ -170,6 +170,11 @@ class FlippedClassroom(Card):
   def __init__(self, game):
     super().__init__(game=game, name="Flipped Classroom", is_persistent=False)
     self.message = "You haven't switched teams... but the board has flipped!"
+
+    # I don't think  this is right:
+    # for p in game.human_players:
+    #   p.home_row = abs(p.home_row - n_rows + 1)
+    #   p.orientation = game.board.rotate_direction_clockwise(p.orientation, 4) 
 
     # Reverse the grid
     game.board.board_grid = game.board.board_grid[::-1]
@@ -296,7 +301,7 @@ class Plague(Card):
   def __init__(self, game):
     super().__init__(game=game, name="Plague", is_persistent=True)
     self.messages = []
-    pieces = game.board.get_pieces(team=game.whose_turn)
+    pieces = game.board.get_pieces(team=game.whose_turn.team)
     infected_piece = random.choice(pieces)
     self.give_plague(infected_piece, None)
 
@@ -312,12 +317,12 @@ class Plague(Card):
       stage = -1
     infected_piece.special_stuff["plague_state"] = stage
     self.messages.append(f"{infected_piece} got the plague!")
-    infected_piece.extra_images["plague"] = Image(from_string=PLAGUE_STAGES[0])
+    infected_piece.extra_images["plague"] = Image(from_string=assets.PLAGUE_STAGES[0])
 
   def advance_plague(self, piece):
     if "plague_state" not in piece.special_stuff: return
     piece.special_stuff["plague_state"] += 1
-    piece.extra_images["plague"] = Image(from_string=PLAGUE_STAGES[piece.special_stuff["plague_state"]])
+    piece.extra_images["plague"] = Image(from_string=assets.PLAGUE_STAGES[piece.special_stuff["plague_state"]])
 
   def upkeep_action(self, game) -> None:
     # plague state is defined such that its owner has two full teams before the fatal upkeep.
@@ -429,11 +434,12 @@ class Tesseract(Card):
 
 def rabbit_domesticate_cmd(game, args, kwargs, display):
   """This method is public bc it needs to be put in COMMANDS"""
+  game.deselect_all()
   domesticatable_rabbits = set()
-  for my_piece in game.board.get_pieces(team=game.whose_turn):
+  for my_piece in game.board.get_pieces(team=game.whose_turn.team):
     for orthogonal_neighbor_square in my_piece.square_this_is_on.get_orthogonal_squares(my_piece):
       for occ in orthogonal_neighbor_square.occupants:
-        if occ.type == "rabbit" and occ.team != game.whose_turn:
+        if occ.type == "rabbit" and occ.team != game.whose_turn.team:
           domesticatable_rabbits.add(occ)
   domesticatable_rabbits = list(domesticatable_rabbits)
   for i, rabbit in enumerate(domesticatable_rabbits):
@@ -462,8 +468,7 @@ def rabbit_domesticate_cmd(game, args, kwargs, display):
   domesticatable_rabbits_squares = [r.square_this_is_on for r in domesticatable_rabbits]
   rabbit_to_domesticate_i = user_choose_square(game, domesticatable_rabbits_squares)
   rabbit_to_domesticate = domesticatable_rabbits[rabbit_to_domesticate_i]
-  rabbit_to_domesticate.set_team(game.whose_turn)
-  game.living_pieces[game.whose_turn].append(rabbit_to_domesticate)
+  game.change_piece_team(rabbit_to_domesticate, game.whose_turn.team)
   # It counts as a move
   game.incorporate_action_and_check_for_end_of_turn("m")
 
@@ -480,7 +485,7 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
   can_be_drawn_first_turn = False
   def __init__(self, game):
     super().__init__(game=game, name="Rabbit", is_persistent=True)
-    rabbit = piece.RabbitPiece(team="autonomous", name="Rabbitus")
+    rabbit = piece.RabbitPiece(team="Autonomous", name="Rabbitus")
     birthsquare = game.board.get_random_square(must_be_unoccupied=True, piece_that_cannot_take_from_here=rabbit)
     if birthsquare is None:
       self.active=False
@@ -525,10 +530,10 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
       # Slecting the rabbit is for visual porpoises
       DEV_PRINT(f"  Upkeep for {rabbit.name}")
       die_roll = random.randint(1, 6)
-      if die_roll == 6 and rabbit.team  != "autonomous":
+      if die_roll == 6 and rabbit.team  != "Autonomous":
         DEV_PRINT(f"  Went autonomous!!")
         game.living_pieces[rabbit.team].remove(rabbit)
-        rabbit.set_team("autonomous")
+        game.change_piece_team(rabbit, "Autonomous")
         game.animate_render()
       if die_roll in {1, 2}:
         self.generate_offspring(game, rabbit)
@@ -536,7 +541,7 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
 
       # in classic RCC, only autonomous rabbits moved.
       # But i decided to change this!!
-      # if rabbit.team == "autonomous":
+      # if rabbit.team == "Autonomous":
       game.select_square_and_occupant(rabbit.square_this_is_on)
       game.animate_render()
       moves = rabbit.get_possible_moves()
@@ -546,35 +551,24 @@ As a turn, a player may domesticate any rabbit adjacent to one of their pieces. 
         game.animate_render()
 
   def get_message(self) -> str:
-    msg = "; ".join(self.messages + ["Remember you can domesticate a rabit with the command 'dom[esticate]'!"])
+    msg = "; ".join(self.messages + ["Remember you can domesticate a rabbit with the command 'dom[esticate]'!"])
     self.messages = []
     return msg
 
-# class Copyme(Card):
-#   text = """"""
-#   can_be_drawn_first_turn = False
-#   def __init__(self, game):
-#     super().__init__(game=game, name="TODO", is_persistent=True)
-# 
-#   def when_leaves_play(self, game):
-#     self.active = False
-# 
-#   def upkeep_action(self, game) -> None:
-#     if game.whose_turn != self.i_was_drawn_on_whose_turn:
-#       return
 
 class Riastrad(Card):
   text = """Mark one of your pieces. Whenever this piece takes, it enters a battle rage and must take again immediately if possible, where all takes past the first one are chosen at random (choose randomly among all possible takes, with the additional option of stopping the frenzy). It may take friendly pieces. It may not take a King except for as its first take in a turn."""
   can_be_drawn_first_turn = True
   def __init__(self, game):
     super().__init__(game=game, name="Riastrad", is_persistent=True)
-    eligible_pieces = game.board.get_pieces(team=game.whose_turn)
+    eligible_pieces = game.board.get_pieces(team=game.whose_turn.team)
     eligible_squares = [p.square_this_is_on for p in eligible_pieces]
+    game.deselect_all()
     piece_i = user_choose_square(game, eligible_squares)
     chosen_piece = eligible_pieces[piece_i]
     self.message = f"{chosen_piece} is marked with the warp spasm! When this piece takes, the warp spasm comes upon it. Its shanks and joints shake like a tree in the flood or a reed in the stream. Its body makes a furious twist inside its skin, so that its feet and shins switch to the rear and his heels and calves switch to the front...There is heard the loud clap of its heart against his breast like the yelp of a howling bloodhound or like a lion going among bears...it sucks one eye so deep into its head that a wild crane couldn't probe it onto its cheek out of the depths of its skull; the other eye falls out along its cheek. The Lon Laith stands out of its forehead, so that it is as long and as thick as a warrior's whetstone. As high, as thick, as strong, as steady, as long as the sail-tree of some huge prime ship is the straight spout of dark blood which arises right on high from the very ridge-pole of its crown."
     chosen_piece.special_stuff["riastrad"] = True
-    chosen_piece.extra_images["plague"] = Image(from_string=riastrad_img)
+    chosen_piece.extra_images["plague"] = Image(from_string=assets.riastrad_img)
 
   def when_leaves_play(self, game):
     self.active = False
@@ -607,7 +601,7 @@ class Riastrad(Card):
       # Select the sqare+occupants just so the viewers can see its location and choice at each time
       # game.select_square_and_occupant(piece_that_moved.square_this_is_on)
       # a hack to make sure that the piece that is rampaging is always colored red
-      color_me_red = piece.PieceMoves(square=None, piece=piece_that_moved, taking_moves=[which_move], nontaking_moves=[])
+      color_me_red = piece.PieceMoves(square=None, moving_piece=piece_that_moved, taking_moves=[which_move], nontaking_moves=[])
       game._cur_available_piece_moves = color_me_red
       newly_taken_pieces += game.move_piece(piece_that_moved, which_move, enforce_whose_turn_it_is=False, do_card_end_actions=False)
       game.animate_render()
@@ -642,6 +636,156 @@ class AKingIsForGlory(Card):
 
 
 
+class TimeBandits(Card):
+  text = """Take turns placing time portals on unoccupied squares on the board, starting with you.  Each player places two.  They may not be placed in the opponent’s King row or Pawn row. Any piece that lands on a Time Portal is transported to the Time Vortex. During each player’s upkeep, that player rolls a die for each of their pieces in the Time Vortex. If it comes up a one, that piece appears on one of the time portals at random.
+
+Ramifications
+Pieces can be taken while on the time portal: the taking piece will just enter the Time Vortex. Similarly, if piece A is on a time portal and piece B reënters the board on top of A from having been in the time portal, piece A is taken. Sliding pieces can slide over time portals.
+
+
+“God isn't interested in technology. He cares nothing for the microchip or the silicon revolution. Look how he spends his time, forty-three species of parrots! Nipples for men!” –Evil
+"""
+  can_be_drawn_first_turn = True
+  def __init__(self, game):
+    super().__init__(game=game, name="TODO", is_persistent=True)
+
+  def when_leaves_play(self, game):
+    self.active = False
+
+  def upkeep_action(self, game) -> None:
+    if game.whose_turn != self.i_was_drawn_on_whose_turn:
+      return
+
+
+def necromance_cmd(game, args, kwargs, display):
+  revivable_pieces = [p for dead_team in game.dead_pieces.values() for p in dead_team]
+  if not revivable_pieces:
+    # self.messages.append("Nothing to Revive!"_
+    return
+  eligible_pieces = []
+  for nec in game.board.get_pieces(team=game.whose_turn.team, types=["necromancer"]):
+    eligible_pieces += game.board.get_pieces(team=game.whose_turn.team, adjacent_to=nec)
+  if not eligible_pieces:  # or no dead pieces
+    # self.messages.append("Necromancer is not adjacent to any potential sacrifice!")
+    return
+
+  eligible_squares = [p.square_this_is_on for p in eligible_pieces]
+  game.deselect_all()
+  sq_i = user_choose_square(game, eligible_squares, message="You will now choose which piece to sacrifice.")
+
+  print(colorize(f"You chose to sacrifice {eligible_pieces[sq_i]}!", "teal_highlight"))
+
+  game.mark_piece_as_dead_and_remove_from_board(eligible_pieces[sq_i])
+
+  game.deselect_all()
+  revived_i = user_choose_list_item(revivable_pieces, print_options=True, message="You will now choose which piece to revive.")
+  revived_piece = revivable_pieces[revived_i]
+  print(colorize(f"You chose to revive {revived_piece}!", "teal_highlight"))
+
+  game.raise_piece_from_dead(revived_piece, birthsquare=eligible_squares[sq_i], new_team=game.whose_turn.team)
+
+  revived_piece.extra_images["necromancers"] = Image(from_string=assets.undead_marker_img)
+  revived_piece.special_stuff["undead"] = True
+
+  # It counts as a move
+  game.incorporate_action_and_check_for_end_of_turn("m")
+
+
+
+class NeckRomancers(Card):
+  text = """Each player gains control of a Necromancer, which they can place anywhere on their backmost row.  The necromancer moves as an Elephant (hopping two spaces diagonally).
+
+As a turn, a player may sacrifice a one of their pieces adjacent to their Necromancer to revive a fallen piece on the square of the sacrificed piece. The revived piece may be any piece that was once on the board, belonging to either player. It is now under the control of the player whose Necromancer revived it.
+
+During each player’s upkeep, they roll a die for each undead piece under their control on the board.  If it comes up a 6, that piece decomposes and leaves play.
+
+"""
+  can_be_drawn_first_turn = True
+  def __init__(self, game):
+    super().__init__(game=game, name="Neck Romancers", is_persistent=True)
+
+    COMMAND_ACTIONS["necromance"] = necromance_cmd
+    COMMAND_ACTIONS["nec"] = necromance_cmd
+    self.messages = []
+
+    for p in game.players_starting_with_me():
+      game.deselect_all()
+      eligible_squares = game.board.get_squares(rows=[p.home_row], unoccupied=False)
+      sq_i = user_choose_square(game, eligible_squares)
+      
+      birthsquare = eligible_squares[sq_i]
+
+      squashed_pieces = birthsquare.occupants
+      for squashed in squashed_pieces:
+        game.mark_piece_as_dead_and_remove_from_board(squashed)
+
+      necromancer = piece.NecromancerPiece(team=p.team, name=f"{p.team} Necromance")
+      birthsquare.add_occupant(necromancer)
+      game.living_pieces[p.team].append(necromancer)
+
+  def get_message(self) -> str:
+    msg = "; ".join(self.messages + ["Remember you can raise a piece from the dead with the command 'nec[romance]'!"])
+    self.messages = []
+    return msg
+
+  def _disenchant_piece(self, undead_piece:piece.Piece) -> None:
+    """TODO ideally somehow this is incorporated into piece's when_dies method
+    """
+    if "undead" in undead_piece.special_stuff:
+      del undead_piece.special_stuff["undead"]
+    if "necromancers" in piece.extra_images:
+      del undead_piece.extra_images["necromancers"]
+
+  def when_leaves_play(self, game):
+    # Remove undead pieces
+    # remove necromancers
+    self.active = False
+    for piece in game.board.get_pieces():
+      if "undead" in piece.special_stuff or piece.type == "necromancer":
+        game.mark_piece_as_dead_and_remove_from_board(piece)
+      self._disenchant_piece(piece)
+
+  def upkeep_action(self, game) -> None:
+    self.message = ""
+    at_least_one_decomposition = False
+    for piece in game.board.get_pieces():
+      if "undead" not in piece.special_stuff: continue
+      if random.randint(1, 6) != 1: continue
+      at_least_one_decomposition = True
+      game.board.highlight_square(piece.square_this_is_on, color="red_highlight")
+      game.mark_piece_as_dead_and_remove_from_board(piece)
+      del piece.special_stuff["undead"]
+      self.messages.append(f"{piece} decomposed!")
+    if at_least_one_decomposition:
+      game.animate_render()
+
+
+# class Copyme(Card):
+#   text = """"""
+#   can_be_drawn_first_turn = False
+#   def __init__(self, game):
+#     super().__init__(game=game, name="TODO", is_persistent=True)
+# 
+#   def when_leaves_play(self, game):
+#     self.active = False
+# 
+#   def upkeep_action(self, game) -> None:
+#     if game.whose_turn != self.i_was_drawn_on_whose_turn:
+#       return
+
+# class Copyme(Card):
+#   text = """"""
+#   can_be_drawn_first_turn = False
+#   def __init__(self, game):
+#     super().__init__(game=game, name="TODO", is_persistent=True)
+# 
+#   def when_leaves_play(self, game):
+#     self.active = False
+# 
+#   def upkeep_action(self, game) -> None:
+#     if game.whose_turn != self.i_was_drawn_on_whose_turn:
+#       return
+
 
 # the keys here are short names that are used largely for debugging when the user draws a specific card.
 ALL_CARDS = {
@@ -657,6 +801,7 @@ ALL_CARDS = {
     "rabbit": Rabbit,
     "riastrad": Riastrad,
     "glory": AKingIsForGlory,
+    "neck": NeckRomancers,
 }
 
-TEST_DECK = [AKingIsForGlory, Riastrad, Rabbit, Plague, Coyote, Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]
+TEST_DECK = [NeckRomancers, AKingIsForGlory, Riastrad, Rabbit, Plague, Coyote, Tesseract, BackToTheBasics, Plague, Coyote, IdentityCrisis, BackToTheBasics, EpiscopiVagantes, FlippedClassroom, Landslide, ZamboniCard, BackToTheBasics]

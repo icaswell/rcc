@@ -9,26 +9,25 @@ from card import ALL_CARDS, Card
 from constants import *
 from graphics import Image, wrap_collapse, vertical_collapse, colorize
 from piece import Piece, PieceMoves
-from asset_library import DICE_FACES
+from asset_library import DICE_FACES, IMAGE_STRINGS
+from name_registry import get_unique_name
 import commands
 
 class Game(): pass
 class Game():
   def __init__(self, game_config):
     self.game_config = game_config
+    self.board = Board(game_config)
     self.all_cards = []
-    self.turn_order = game_config["players"]
     self.human_players = game_config["players"]
-    self.king_deaths = {player:0 for player in self.human_players}
-    # self.turn_order = ["Ibrahim", "White", "Elijah",  "Black"]  # Ibrahim is the "player" corresponding to white's pkeep
-    # self.upkeep_players = ["Ibrahim", "Elijah"]
+    self.king_deaths = {player.team:0 for player in self.human_players}
     self.living_pieces =    defaultdict(list)
     self.dead_pieces =      defaultdict(list)
-    self.etherized_pieces = defaultdict(list)
-    for player in self.human_players: # + self.upkeep_players:
-      self.living_pieces[player] = []
-      self.dead_pieces[player] = []
-      self.etherized_pieces[player] = []
+    for piece in self.board.get_pieces():
+      self.living_pieces[piece.team].append(piece)
+    # this is where the cursor reappears if you move the cursor when there has been no slection
+    self.backup_selected_square = self.board.square_from_a1_coordinates("D4") # this will fail if the board is smaller than 4x4...but...
+
 
     self.die_roll = 1
     self.die_roll_fn = game_config["die_roll_function"]
@@ -37,7 +36,7 @@ class Game():
     # self.past_cards = []
 
     self.turn_number = 0
-    self.whose_turn = "White"
+    self.whose_turn = self.human_players[0]
     self.selected_square = None
     self.selected_pieces = []
     self.messages_this_turn = ["There are no selected pieces."]
@@ -45,13 +44,6 @@ class Game():
     self.available_actions_per_turn = ["m"]  # default: can do one Move ("m")
     self.available_actions_this_turn = self.available_actions_per_turn.copy()
 
-    self.board = Board(game_config)
-    for player in self.human_players:
-      self.living_pieces[player] =  []
-    for piece in self.board.get_pieces():
-      self.living_pieces[piece.team].append(piece)
-    # this is where the cursor reappears if you move the cursor when there has been no slection
-    self.backup_selected_square = self.board.square_from_a1_coordinates("D4") # this will fail if the board is smaller than 4x4...but...
 
     # HISTORY AND REPRODUCIBILITY
     # maps turn number to stuff about the board. Ideally, everything can be written to a json....
@@ -79,8 +71,8 @@ class Game():
       # Aha! you have no more actions so the turn ends!
       # Let's do the turn-ending things.
       # Note: self.available_actions_this_turn is re-filled in the upkeep.
-      new_turn_idx = self.turn_order.index(self.whose_turn) + 1
-      self.whose_turn = self.turn_order[new_turn_idx%len(self.turn_order)]
+      new_turn_idx = self.human_players.index(self.whose_turn) + 1
+      self.whose_turn = self.human_players[new_turn_idx%len(self.human_players)]
       self.turn_number += 1
       self.perform_upkeep()
       self.roll_for_card()
@@ -114,7 +106,7 @@ class Game():
     rows = [f"turn number: {self.turn_number}", f"Whose turn:  {self.whose_turn}"]
     max_len = max(len(s) for s in rows)
     rows = [r.ljust(max_len, " ") for r in rows]
-    color="blue_highlight" if self.whose_turn == "Black" else "teal_highlight"
+    color="blue_highlight" if self.whose_turn.team == "Black" else "teal_highlight"
 
     img = Image(from_string="\n".join(rows), color=color)
     img.drop_in_image(Image(from_string=DICE_FACES[self.die_roll]), location=(0, img.width + 2))
@@ -135,17 +127,16 @@ class Game():
 
 
   def get_graveyard_img(self):
-    """ TODO this ignores the autonomous pieces!
-    """
     graveyard_images = []
-    for player in self.human_players: #  + self.upkeep_players:
-      if not self.dead_pieces[player]: continue
+    for team, cur_dead_pieces in self.dead_pieces.items():
+      team = "Elijah" if team == "Autonomous" else team  # just for fun
+      if not cur_dead_pieces: continue
       graveyard_width = self.graveyard_width
       # graveyard_width = min(self.graveyard_width, self.board.square_width*len(self.dead_pieces[player]))
       graveyard_img = Image(height=2, width=graveyard_width, color=COLOR_SCHEME["GRAVEYARD_HEADER_COLOR"])
-      graveyard_img.print_in_string(f"  {player}'s Graveyard")
+      graveyard_img.print_in_string(f"  {team}'s Graveyard")
       graveyard_row = []
-      for dead_piece in self.dead_pieces[player]:
+      for dead_piece in cur_dead_pieces:
         dead_piece_img = dead_piece.get_image()
         dead_piece_img.print_in_string(dead_piece.name)
         graveyard_row.append(dead_piece_img)
@@ -245,7 +236,7 @@ class Game():
     print(printstring, end="")
     if DEV_MODE: print()
     for player in self.human_players:
-      DEV_PRINT(f"Living pieces for player {player}: {self.living_pieces[player]}")
+      DEV_PRINT(f"Living pieces for player {player}: {self.living_pieces[player.team]}")
 
   def command_prompt(self):
     prompt_str = "enter command ('halp' for help): "
@@ -254,15 +245,56 @@ class Game():
     # prompt_str += f"\n\033[1A\033[{len(prompt_str)}C"
     return prompt_str
 
+  def players_starting_with_me(self):
+    """Return the list of players, but cycled such atht eh current player is first in the list.
+    This is used by several cards."""
+    cur_turn_idx = self.human_players.index(self.whose_turn)
+    return self.human_players[cur_turn_idx%len(self.human_players):] + self.human_players[0:cur_turn_idx%len(self.human_players)]
 
-  def mark_piece_as_dead_and_remove_from_board(self, piece):
-    piece.action_when_dies(self)
-    self.command_history.append(f"# died: {piece.name}")
-    self.dead_pieces[piece.team].append(piece)
-    if piece.team in self.living_pieces:
-      self.living_pieces[piece.team].remove(piece)
-    if piece in piece.square_this_is_on.occupants:
-      piece.square_this_is_on.remove_occupant(piece)
+  def mark_piece_as_dead_and_remove_from_board(self, dead_piece):
+    dead_piece.action_when_dies(self)
+    self.command_history.append(f"# died: {dead_piece.name}")
+    if dead_piece in self.dead_pieces[dead_piece.team]:
+      raise ValueError(f"While marking {dead_piece} as dead, we noticed that it was already in self.dead_pieces: {self.dead_pieces}")
+    self.dead_pieces[dead_piece.team].append(dead_piece)
+    if dead_piece.team in self.living_pieces:
+      self.living_pieces[dead_piece.team].remove(dead_piece)
+      if dead_piece in self.living_pieces[dead_piece.team]:
+        raise ValueError(f"While marking {dead_piece} as dead, we noticed that it occurred multiple times in self.living_pieces: {self.living_pieces}")
+    if dead_piece in dead_piece.square_this_is_on.occupants:
+      dead_piece.square_this_is_on.remove_occupant(dead_piece)
+
+  def raise_piece_from_dead(self, revived_piece:Piece, birthsquare:Square, new_team:str=None) -> None:
+    if revived_piece not in self.dead_pieces[revived_piece.team]:
+      raise ValueError(f"Piece {revived_piece} was not dead!! Dead pieces: {self.dead_pieces}; living pieces: {self.living_pieces}")
+    self.dead_pieces[revived_piece.team].remove(revived_piece)
+    self.living_pieces[revived_piece.team].append(revived_piece)
+    revived_piece.alive = True
+    birthsquare.add_occupant(revived_piece)
+    if new_team:
+      self.change_piece_team(revived_piece, new_team)
+
+
+  def change_piece_team(self, piece_to_change:Piece, team:str) -> None:
+    if piece_to_change.team == team: return
+    was_alive_or_dead = False
+    for piece_set in [self.living_pieces, self.dead_pieces]:
+      if piece_to_change.team not in piece_set:
+        piece_set[piece_to_change.team] = []
+      if team not in piece_set:
+        piece_set[team] = []
+      if piece_to_change in piece_set[piece_to_change.team]:
+        was_alive_or_dead = True
+        piece_set[piece_to_change.team].remove(piece_to_change)
+        piece_set[team].append(piece_to_change)
+    if not was_alive_or_dead:
+      raise ValueError(f"Tried to change the team of {piece_to_change} from {piece_to_change.team} to {team}, but it was neither alive nor dead. Dead pieces: {self.dead_pieces}; alive pieces: {self.living_pieces}")
+
+    if piece_to_change.type in IMAGE_STRINGS and team in IMAGE_STRINGS[piece_to_change.type]:
+      piece_to_change.img = Image(IMAGE_STRINGS[piece_to_change.type][team], color="transparent", name=get_unique_name(f"{piece_to_change.name}_img"))
+
+    piece_to_change.team = team
+
 
   def move_piece(self, moving_piece, end_square, enforce_whose_turn_it_is = True, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=False, do_card_end_actions=True) -> List[Piece]:
     """Note: this method moves the piece and updates living and dead pieces.
@@ -281,7 +313,7 @@ class Game():
     if DEV_MODE:
       enforce_whose_turn_it_is = False
     DEV_PRINT(f"moving {moving_piece} from {moving_piece.square_this_is_on} to {end_square}, {self.whose_turn}'s turn")
-    if enforce_whose_turn_it_is and moving_piece.team != self.whose_turn:
+    if enforce_whose_turn_it_is and moving_piece.team != self.whose_turn.team:
       raise ValueError(f"You ({self.whose_turn}) can't move a piece belonging to {moving_piece.team}!") 
     dead_pieces = self.board.move_piece(moving_piece, end_square)
     for dead_piece in dead_pieces:
@@ -307,15 +339,16 @@ class Game():
 
     end_square = self._cur_available_piece_moves.id_to_move[selected_move_id]
     self.move_piece(self.selected_pieces[0], end_square, this_was_a_human_making_this_move_and_thus_using_their_move_allowance=True)
-    self._deselect_all()
+    self.deselect_all()
 
     # _cur_available_piece_moves is basically a way for move_selected_piece() and _select_piece_interactive to communicate
     self._cur_available_piece_moves = None
 
 
-  def _deselect_all(self) -> None:
+  def deselect_all(self) -> None:
     self.selected_pieces = []
-    self.backup_selected_square = self.selected_square
+    if self.selected_square:
+      self.backup_selected_square = self.selected_square
     self.selected_square = None
     self.board.dehighlight_all()
     self.messages_this_turn.append(f"No selected_pieces.")
@@ -364,7 +397,7 @@ class Game():
     direction = {"h": "w", "j": "s", "k": "n", "l": "e"}[cmd]
     path = [direction]
     if args: path *= int(args[0])
-    new_selected_square = self.selected_square.get_square_from_directions(piece=None, directions=path, stop_at_end_of_board=True)
+    new_selected_square = self.selected_square.get_square_from_directions(moving_piece=None, directions=path, stop_at_end_of_board=True)
     self.select_square_and_occupant(new_selected_square)
 
   def move_top_piece(self, start_square, end_square):

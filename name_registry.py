@@ -7,8 +7,8 @@ import random
 NAME_REGISTRY = set()
 
 def get_unique_name(base):
-  unique_name = f"{base}_{len(NAME_REGISTRY)}"
-  return unique_name
+  if base not in NAME_REGISTRY: return base
+  return f"{base}_{len(NAME_REGISTRY)}"
 
 def register_unique_name(base):
   unique_name = get_unique_name(base)

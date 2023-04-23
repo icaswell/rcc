@@ -8,20 +8,20 @@ import random
 
 from piece import *
 from card import Deck, TEST_DECK, ALL_CARDS
+import board
+import player
 
 def validate_config(config):
-  required_keys = ["board_height", "initial_positions", "board_width", "die_roll_function", "square_height", "square_width", "players", "deck", "players_orientations"]
+  required_keys = ["board_height", "initial_positions", "board_width", "die_roll_function", "square_height", "square_width", "players", "deck"]
   for key in required_keys:
     if key not in config:
       raise ValueError(f"config missing {key}")
   extra_keys =  set(config.keys()) - set(required_keys)
   if extra_keys:
     raise ValueError(f"extra keys: {extra_keys}")
-  for k in config["players"]:
-    assert(isinstance(k, str))
-  assert len(config["players"]) == len(config["players_orientations"])
-  for p, o in config["players_orientations"].items():
-    assert o in ["n", "e", "s", "w"]
+  for p in config["players"]:
+    assert isinstance(p, player.Player)
+    assert p.orientation in ["n", "e", "s", "w"]
   assert callable(config["die_roll_function"])
   seen_positions = set()
   for (row, col), piece_generator in config["initial_positions"]:
@@ -36,8 +36,10 @@ def validate_config(config):
 # there is some redundancy with the initial_positions map with the team= parameter
 # also with the players key
 STANDARD_CHESS = {
-    "players": ["White", "Black"],
-    "players_orientations": {"White": "s", "Black": "n"},  # TODO unify above?
+    "players": [
+        player.Player(team="White", orientation="s", home_row=0),
+        player.Player(team="Black", orientation="n", home_row=7),
+     ],
     "board_height": 8,
     "board_width": 8,
     "square_height": 8,
@@ -81,8 +83,10 @@ STANDARD_CHESS = {
     }
 
 RCC = {
-    "players": ["White", "Black"],
-    "players_orientations": {"White": "s", "Black": "n"},  # TODO unify above?
+    "players": [
+        player.Player(team="White", orientation="s", home_row=0),
+        player.Player(team="Black", orientation="n", home_row=7),
+     ],
     "board_height": 8,
     "board_width": 8,
     "square_height": 8,
@@ -127,8 +131,10 @@ RCC = {
 
 
 TEST_GAME_CONFIG = {
-    "players": ["White", "Black"],
-    "players_orientations": {"White": "s", "Black": "n"},  # TODO unify above?
+    "players": [
+        player.Player(team="White", orientation="s", home_row=0),
+        player.Player(team="Black", orientation="n", home_row=7),
+     ],
     "board_height": 8,
     "board_width": 8,
     "square_height": 8,
@@ -171,7 +177,7 @@ TEST_GAME_CONFIG = {
       ((2, 6), lambda: ZamboniPiece(team="Zamboni", name=f"Zambonus")),
       ((2, 2), lambda: SwapperPiece(team="Swapper", name=f"swapper")),
       # ((3, 1), lambda: RabbitPiece(team="Black", name=f"rabbit")),
-      # ((4, 1), lambda: RabbitPiece(team="autonomous", name=f"rabbit")),
+      # ((4, 1), lambda: RabbitPiece(team="Autonomous", name=f"rabbit")),
       # ((5, 1), lambda: RabbitPiece(team="white", name=f"rabbit")),
       ]
     }

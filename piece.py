@@ -1,9 +1,12 @@
 import random
 
 from graphics import Image
+import player
 from name_registry import register_name, get_unique_name
-from asset_library import STANDARD_PIECES, OTHER_PIECES
+from asset_library import IMAGE_STRINGS, IMAGE_STRINGS
 from constants import *
+
+from typing import Union, List
 
 
 class Piece(): pass
@@ -17,15 +20,15 @@ class PieceMoves():
   It stores what moves a given Piece can make. The actual logic for finding the takable moves happens in the piece's get_possible_moves function/
   TODO wtf the parameter "square" is not used
   """
-  def __init__(self, square, piece, all_moves=None, taking_moves=None, nontaking_moves=None):
-    if square is None and piece is None:
+  def __init__(self, square, moving_piece, all_moves=None, taking_moves=None, nontaking_moves=None):
+    if square is None and moving_piece is None:
       self.taking = []
       self.nontaking = []
     elif all_moves is not None:
       if (taking_moves is not None) or (nontaking_moves is not None):
         raise ValueError("If all_moves is specified, neither of taking_moves or nontaking_moves can be")
-      self.taking    =    [sq for sq in all_moves if sq.takable_occupants(piece)]
-      self.nontaking = [sq for sq in all_moves if not sq.takable_occupants(piece)]
+      self.taking    =    [sq for sq in all_moves if sq.takable_occupants(moving_piece)]
+      self.nontaking = [sq for sq in all_moves if not sq.takable_occupants(moving_piece)]
     else:
       if (taking_moves is None) or (nontaking_moves is None):
         raise ValueError("If all_moves is not specified, both of taking_moves and nontaking_moves must be")
@@ -72,40 +75,45 @@ def GetPawnMoves(piece:Piece) -> PieceMoves:
   taking_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, pawn_taking_directions(piece))
   taking_moves = [square for square in taking_moves if (square.takable_occupants(piece) and not square.untakable_occupants(piece))]  # TODO
 
-  return PieceMoves(square=piece.square_this_is_on, piece=piece, taking_moves=taking_moves, nontaking_moves=nontaking_moves)
+  return PieceMoves(square=piece.square_this_is_on, moving_piece=piece, taking_moves=taking_moves, nontaking_moves=nontaking_moves)
 
 def GetKnightMoves(piece:Piece) -> PieceMoves:
   directions = [["n", "nw"], ["n", "ne"], ["e", "ne"], ["e", "se"], ["s", "se"], ["s", "sw"], ["w", "sw"], ["w", "nw"]]
   all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetBishopMoves(piece:Piece) -> PieceMoves:
   all_moves = piece.square_this_is_on.get_diagonal_rays(piece) 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetRookMoves(piece:Piece) -> PieceMoves:
   all_moves = piece.square_this_is_on.get_orthogonal_rays(piece) 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetQueenMoves(piece:Piece) -> PieceMoves:
   all_moves = piece.square_this_is_on.get_orthogonal_rays(piece) 
   all_moves += piece.square_this_is_on.get_diagonal_rays(piece) 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetKingMoves(piece:Piece) -> PieceMoves:
   directions = [["n"],["ne"],["e"],["se"],["s"],["sw"],["w"], ["nw"]]
   all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions) 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetRabbitMoves(piece:Piece) -> PieceMoves:
   directions = [["n", "n"],["e", "e"],["s", "s"],["w", "w"]]
   all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+
+def GetElephantMoves(piece:Piece) -> PieceMoves:
+  directions = [["ne", "ne"],["se", "se"],["sw", "sw"],["nw", "nw"]]
+  all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 def GetCamelMoves(piece:Piece) -> PieceMoves:
   directions = [["n", "n", "nw"], ["n", "n", "ne"], ["e", "e", "ne"], ["e", "e", "se"], ["s", "s", "se"], ["s", "s", "sw"], ["w", "w", "sw"], ["w", "w", "nw"]]
   all_moves = piece.square_this_is_on.get_squares_from_directions_list(piece, directions, "jumping") 
-  return PieceMoves(piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
+  return PieceMoves(moving_piece=piece, square=piece.square_this_is_on, all_moves=all_moves)
 
 
 ALL_MOVING_STYLES = {
@@ -118,21 +126,22 @@ ALL_MOVING_STYLES = {
     "king": GetKingMoves,
     "camel": GetCamelMoves,
     "rabbit": GetRabbitMoves,
+    "elephant": GetElephantMoves,
  }
 
 class Piece():
-  def __init__(self, team, piece_type, name, moves_as = None, interaction_type: InteractionType = InteractionType.TAKING, img:Image=None):
+  def __init__(self, team: Union[str, player.Player], piece_type, name, moves_as = None, interaction_type: InteractionType = InteractionType.TAKING, img:Image=None):
     if img:
       self.img = img
     else:
-      self.img = Image(STANDARD_PIECES[piece_type][team], color="transparent", name=f"{name}_img")
+      self.img = Image(IMAGE_STRINGS[piece_type][team], color="transparent", name=f"{name}_img")
     register_name(name)
     self.name = name
     self.type = piece_type
     self.is_royal = self.type in {"queen", "king"}
     self.moves_as = moves_as if moves_as else piece_type
     self.interaction_type = interaction_type 
-    self.team = team
+    self.team = team.team if isinstance(team, player.Player) else team
     self.orientation = "s" if team == "White" else "n"
     self.alive = True
     self.has_moved = False
@@ -238,25 +247,25 @@ class King(Piece):
     game.king_deaths[self.team] += 1
 
 
+class NecromancerPiece(Piece):
+  def __init__(self, team, name):
+    super().__init__(team=team, name=name, piece_type="necromancer", moves_as="elephant", interaction_type=InteractionType.TAKING)
+
 class RabbitPiece(Piece):
   def __init__(self, team, name):
     name = get_unique_name(name)  # getting unique name here because there may be a lot of rabbits and this is OK
-    super().__init__(team=team, name=name, piece_type="rabbit", moves_as="rabbit", interaction_type=InteractionType.TAKING, img="thisisahacktopreventimageinitialization")
-    self.set_team(team)
-
-  def set_team(self, team):
-    self.team= team
-    img_name = get_unique_name(self.name + "_img")
-    self.img = Image(OTHER_PIECES[f"{team.lower()}_rabbit"], color="transparent", name=img_name)
+    img_name = get_unique_name(name + "_img")
+    img = Image(IMAGE_STRINGS["rabbit"][team], color="transparent", name=img_name)
+    super().__init__(team=team, name=name, piece_type="rabbit", moves_as="rabbit", interaction_type=InteractionType.TAKING, img=img)
 
   def can_be_taken_by(self, piece: Piece) -> bool:
     """autonomous rabbits may take each other"""
-    if self.team == "autonomous": return True
+    if self.team == "Autonomous": return True
     return self.team != piece.team
 
 class ZamboniPiece(Piece):
   def __init__(self, team, name):
-    img = Image(OTHER_PIECES["zamboni"], color="transparent", name=get_unique_name(f"{name}_img"))
+    img = Image(IMAGE_STRINGS["zamboni"], color="transparent", name=get_unique_name(f"{name}_img"))
     super().__init__(team=team, name=name, piece_type="zamboni", moves_as="king", interaction_type=InteractionType.PUSHING, img=img)
 
   def can_be_taken_by(self, piece: Piece) -> bool:
@@ -266,7 +275,7 @@ class ZamboniPiece(Piece):
 
 class SwapperPiece(Piece):
   def __init__(self, team, name):
-    img = Image(OTHER_PIECES["swapper"], color="transparent", name=f"{name}_img")
+    img = Image(IMAGE_STRINGS["swapper"], color="transparent", name=f"{name}_img")
     super().__init__(team=team, name=name, piece_type="swapper", moves_as="king", interaction_type=InteractionType.SWAPPING, img=img)
 
 
@@ -278,12 +287,12 @@ Each move Coyote makes must be as far as possible--for instance, if Coyote moves
 """
   def __init__(self, team, name):
     moves_as = random.choice("knight bishop rook queen".split())
-    img = Image(OTHER_PIECES["coyote"], color="transparent", name=get_unique_name(f"{name}_img"))
+    img = Image(IMAGE_STRINGS["coyote"], color="transparent", name=get_unique_name(f"{name}_img"))
     super().__init__(team=team, name=name, piece_type="coyote", moves_as=moves_as, interaction_type=InteractionType.SWAPPING, img=img)
 
 # class Espresso(Piece):
 #     def __init__(self, team, name):
-#         img = Image(OTHER_PIECES["espresso"], color="transparent", name=f"{name}_img")
+#         img = Image(IMAGE_STRINGS["espresso"], color="transparent", name=f"{name}_img")
 #         super().__init__(team=team, name=name, piece_type="espresso", moves_as="immobile", img=img)
 #     def tangibility_wrt_incomer(self, piece: Piece) -> str:
 #         return "intangible"
